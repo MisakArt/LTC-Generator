@@ -14,7 +14,7 @@
   <pre id="out"></pre>
   <script type="module">
     import {
-      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, framesPerDay,
+      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, wavSize, framesPerDay,
       userBitsFromHex, userBitsFromDate, formatUserBits, SMPTE_RISE_US,
     } from "./ltc.js";
 
@@ -161,6 +161,16 @@
       const head = new DataView(await blob.arrayBuffer());
       log(blob.size === 44 + sr * 2 && head.getUint32(24, true) === sr && head.getUint16(22, true) === 1,
         `WAV 1 s @ ${sr} Hz mono 16-bit, size ${blob.size}`);
+    }
+    for (const bd of [24, 32]) {
+      const b = renderWav({ r: RATES["25"], startFrame: 0, seconds: 1, db: -6, bitDepth: bd });
+      const h = new DataView(await b.arrayBuffer());
+      const peak = Math.max(...Array.from({ length: 1000 }, (_, i) => Math.abs(bd === 32
+        ? h.getFloat32(44 + i * 4, true)
+        : (h.getUint16(44 + i * 3, true) | (h.getInt8(46 + i * 3) << 16)) / 8388607)));
+      log(b.size === wavSize(1, 48000, bd) && b.size === 44 + 48000 * bd / 8 && h.getUint16(34, true) === bd
+        && h.getUint16(20, true) === (bd === 32 ? 3 : 1) && Math.abs(peak - 0.501) < 0.01,
+        `WAV ${bd}-bit size ${b.size}, peak ${peak.toFixed(3)}`);
     }
     const blob = renderWav({ r: RATES["25"], startFrame: 0, seconds: 1, db: -6 });
     const head = new DataView(await blob.arrayBuffer());

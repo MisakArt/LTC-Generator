@@ -25,7 +25,7 @@ Reference sites for ideas:
 - User bits: 8 nibbles UB1..UB8 (bits 4,12,…,60). Hex string written like a number (last digit = UB1). Date mode = SMPTE 309M layout as in libltc (UB1/2 day, UB3/4 month, UB5/6 year, UB7/8 time zone 0 = UTC) and sets BGF2 (bit 59 at 24/30, bit 43 at 25).
 - Rise time: linear ramp, 25 µs 10–90 % default, placed at exact sub-sample edge time. `riseUs: 0` = hard square.
 - Frame counter wraps at 24h.
-- WAV export: 44.1/48/96 kHz, 16-bit mono.
+- WAV export: 44.1/48/96 kHz, mono, 16/24-bit PCM or 32-bit float. Length in minutes (0.1–60); file size shown live.
 - Output device select uses `AudioContext.setSinkId` (Chromium only; hidden elsewhere). Device names need mic permission ("Show device names" button).
 - Shortcuts: Space = play/stop, R = reset (ignored while typing in a field).
 - Local test: any static server on port 8123 (e.g. `npx http-server -p 8123 -c-1`), open `/test.html`. Browser-pane launch config is in parent folder `.claude/launch.json` (not in repo; points at a temp server script, recreate if gone).

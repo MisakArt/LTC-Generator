@@ -1,5 +1,5 @@
 import {
-  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav,
+  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav, wavSize, BIT_DEPTHS,
   NO_USER_BITS, userBitsFromHex, userBitsFromDate, formatUserBits,
 } from "./ltc.js";
 
@@ -10,7 +10,7 @@ const ui = {
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   ubMode: $("ubMode"), ubHex: $("ubHex"), ubHexWrap: $("ubHexWrap"), ubDate: $("ubDate"), ubDateWrap: $("ubDateWrap"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"),
-  duration: $("duration"), sampleRate: $("sampleRate"), export: $("export"), error: $("error"),
+  duration: $("duration"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), export: $("export"), error: $("error"),
 };
 
 for (const r of Object.values(RATES)) ui.fps.add(new Option(r.label, r.id, false, r.id === "25"));
@@ -190,16 +190,40 @@ function exportWav() {
   if (s === null) return showError("Invalid start time. Use HH:MM:SS:FF, FF < fps (DF: no ;00/;01 at minutes not ÷10).");
   const ub = userBits();
   if (!ub) return showError("Invalid user bits. Use 8 hex digits (0–9, A–F).");
-  const seconds = Number(ui.duration.value);
-  if (!(seconds > 0 && seconds <= 3600)) return showError("WAV length must be 1–3600 s.");
+  const minutes = wavMinutes();
+  if (minutes === null) return showError("WAV length must be 0.1–60 minutes.");
   showError("");
+  const seconds = minutes * 60;
   const sampleRate = Number(ui.sampleRate.value);
-  const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, userBits: ub, riseUs: riseUs() });
+  const bitDepth = Number(ui.bitDepth.value);
+  const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, bitDepth, userBits: ub, riseUs: riseUs() });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `LTC_${rate().id}fps_${ui.start.value.replace(/\D/g, "")}_${seconds}s_${sampleRate / 1000}k.wav`;
+  a.download = `LTC_${rate().id}fps_${ui.start.value.replace(/\D/g, "")}_${minutes}min_${sampleRate / 1000}k_${bitDepth}bit.wav`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// WAV length in minutes, or null if out of range.
+function wavMinutes() {
+  const m = Number(ui.duration.value);
+  return m >= 0.1 && m <= 60 ? m : null;
+}
+
+function formatBytes(b) {
+  return b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`;
+}
+
+// File size for current choice, and per bit depth in the dropdown.
+function updateWavSize() {
+  const m = wavMinutes();
+  const sr = Number(ui.sampleRate.value);
+  ui.duration.classList.toggle("bad", m === null);
+  ui.wavSize.textContent = m === null ? "–" : formatBytes(wavSize(m * 60, sr, Number(ui.bitDepth.value)));
+  BIT_DEPTHS.forEach((d, i) => {
+    const name = d === 32 ? "32-bit float" : `${d}-bit`;
+    ui.bitDepth.options[i].text = m === null ? name : `${name} · ${formatBytes(wavSize(m * 60, sr, d))}`;
+  });
 }
 
 function updateLevel() {
@@ -264,6 +288,9 @@ ui.stop.onclick = stop;
 ui.reset.onclick = reset;
 ui.export.onclick = exportWav;
 ui.level.oninput = updateLevel;
+ui.duration.oninput = updateWavSize;
+ui.sampleRate.onchange = updateWavSize;
+ui.bitDepth.onchange = updateWavSize;
 ui.fps.onchange = () => { startFrame(); reset(); };
 ui.start.onchange = reset;
 ui.start.oninput = startFrame;
@@ -280,4 +307,5 @@ window.addEventListener("resize", queueScope);
 ui.ubDate.value = todayIso();
 frame = startFrame() ?? 0;
 updateLevel();
+updateWavSize();
 render();

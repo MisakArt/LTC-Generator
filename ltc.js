@@ -162,27 +162,45 @@ export function dbToGain(db) {
   return Math.pow(10, db / 20);
 }
 
-// Render LTC to a 16-bit mono WAV Blob.
-export function renderWav({ r, startFrame, seconds, db, sampleRate = 48000, userBits, riseUs }) {
+export const BIT_DEPTHS = [16, 24, 32]; // 16/24 = PCM int, 32 = IEEE float
+
+// Mono WAV file size in bytes (44-byte header + data).
+export function wavSize(seconds, sampleRate, bitDepth = 16) {
+  return 44 + Math.round(seconds * sampleRate) * (bitDepth / 8);
+}
+
+// Render LTC to a mono WAV Blob. bitDepth 16/24 = PCM, 32 = float.
+export function renderWav({ r, startFrame, seconds, db, sampleRate = 48000, bitDepth = 16, userBits, riseUs }) {
   const n = Math.round(seconds * sampleRate);
+  const bytes = bitDepth / 8;
   const samples = new Float32Array(n);
   new LtcGenerator(r, sampleRate, startFrame, { userBits, riseUs }).fill(samples, dbToGain(db));
-  const buf = new ArrayBuffer(44 + n * 2);
+  const buf = new ArrayBuffer(wavSize(seconds, sampleRate, bitDepth));
   const v = new DataView(buf);
   const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
   str(0, "RIFF");
-  v.setUint32(4, 36 + n * 2, true);
+  v.setUint32(4, 36 + n * bytes, true);
   str(8, "WAVE");
   str(12, "fmt ");
   v.setUint32(16, 16, true);
-  v.setUint16(20, 1, true); // PCM
+  v.setUint16(20, bitDepth === 32 ? 3 : 1, true); // 1 = PCM, 3 = float
   v.setUint16(22, 1, true); // mono
   v.setUint32(24, sampleRate, true);
-  v.setUint32(28, sampleRate * 2, true);
-  v.setUint16(32, 2, true);
-  v.setUint16(34, 16, true);
+  v.setUint32(28, sampleRate * bytes, true);
+  v.setUint16(32, bytes, true);
+  v.setUint16(34, bitDepth, true);
   str(36, "data");
-  v.setUint32(40, n * 2, true);
-  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(samples[i] * 32767), true);
+  v.setUint32(40, n * bytes, true);
+  if (bitDepth === 32) {
+    for (let i = 0; i < n; i++) v.setFloat32(44 + i * 4, samples[i], true);
+  } else if (bitDepth === 24) {
+    for (let i = 0; i < n; i++) {
+      const s = Math.round(samples[i] * 8388607);
+      v.setUint16(44 + i * 3, s & 0xffff, true);
+      v.setInt8(46 + i * 3, s >> 16);
+    }
+  } else {
+    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(samples[i] * 32767), true);
+  }
   return new Blob([buf], { type: "audio/wav" });
 }

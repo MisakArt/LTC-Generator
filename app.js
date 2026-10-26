@@ -1,11 +1,11 @@
 import {
-  RATES, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav,
+  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav,
   NO_USER_BITS, userBitsFromHex, userBitsFromDate, formatUserBits,
 } from "./ltc.js";
 
 const $ = (id) => document.getElementById(id);
 const ui = {
-  display: $("display"), status: $("status"), fpsLabel: $("fpsLabel"), ubLabel: $("ubLabel"),
+  display: $("display"), scope: $("scope"), status: $("status"), fpsLabel: $("fpsLabel"), ubLabel: $("ubLabel"),
   play: $("play"), stop: $("stop"), reset: $("reset"),
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   ubMode: $("ubMode"), ubHex: $("ubHex"), ubHexWrap: $("ubHexWrap"), ubDate: $("ubDate"), ubDateWrap: $("ubDateWrap"),
@@ -58,6 +58,52 @@ function showError(msg) {
   ui.error.hidden = !msg;
 }
 
+// Waveform preview: one frame of the signal being sent, synthesized from the same encoder.
+// Redraws only on frame / level / setting change, batched to one draw per animation frame.
+let scopeQueued = false;
+
+function queueScope() {
+  if (scopeQueued) return;
+  scopeQueued = true;
+  requestAnimationFrame(drawScope);
+}
+
+function drawScope() {
+  scopeQueued = false;
+  const c = ui.scope;
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(c.clientWidth * dpr);
+  const h = Math.round(c.clientHeight * dpr);
+  if (!w || !h) return;
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, w, h);
+
+  // Bit grid every 8 bits, sync word (bits 64–79) shaded, zero line.
+  g.fillStyle = "#1c1c1c";
+  g.fillRect((64 / 80) * w, 0, (16 / 80) * w, h);
+  g.fillStyle = "#333";
+  for (let b = 8; b < 80; b += 8) g.fillRect(Math.round((b / 80) * w), 0, 1, h);
+  g.fillRect(0, Math.round(h / 2), w, 1);
+
+  // 2 samples per pixel; generator works at any sample rate. Full scale = 0 dBFS.
+  const samples = new Float32Array(w * 2);
+  const gen = new LtcGenerator(rate(), rate().rate * samples.length, frame, {
+    userBits: userBits() ?? NO_USER_BITS, riseUs: riseUs(),
+  });
+  gen.fill(samples, dbToGain(db()));
+  const amp = h / 2 - 4 * dpr;
+  g.strokeStyle = playing ? "#ff3b30" : "#e6e6e6";
+  g.lineWidth = 1.5 * dpr;
+  g.beginPath();
+  for (let i = 0; i < samples.length; i++) {
+    const x = (i / samples.length) * w;
+    const y = h / 2 - samples[i] * amp;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+}
+
 function render() {
   ui.display.textContent = formatTc(fromFrames(frame, rate()), rate());
   ui.display.classList.toggle("stopped", !playing);
@@ -71,6 +117,7 @@ function render() {
   ui.stop.disabled = !playing;
   ui.fps.disabled = playing;
   ui.start.disabled = playing;
+  queueScope();
 }
 
 async function play() {
@@ -158,6 +205,7 @@ function exportWav() {
 function updateLevel() {
   ui.levelLabel.textContent = `${db()} dBFS`;
   if (gain) gain.gain.setTargetAtTime(dbToGain(db()), ctx.currentTime, 0.01);
+  queueScope();
 }
 
 // Output device select. Needs AudioContext.setSinkId (Chromium). Labels need mic permission.
@@ -227,6 +275,7 @@ ui.rise.onchange = restartIfPlaying;
 ui.sink.onchange = changeSink;
 ui.sinkScan.onclick = scanSinks;
 document.addEventListener("keydown", onKey);
+window.addEventListener("resize", queueScope);
 
 ui.ubDate.value = todayIso();
 frame = startFrame() ?? 0;

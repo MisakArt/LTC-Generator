@@ -49,6 +49,16 @@ h1 {
 
 .display.stopped { color: var(--fg); }
 
+.scope {
+  display: block;
+  width: 100%;
+  height: 96px;
+  margin-top: 8px;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .status {
   text-align: center;
   color: var(--dim);

@@ -28,6 +28,7 @@ Reference sites for ideas:
 
 **Status (2026-10-26):** Version 1 done. 24/25/30 fps, start time, Play/Stop/Reset,
 output level (dBFS), big display, WAV export. Encoder self-test passes in browser.
+Pushed to main. GitHub Pages must be enabled by hand (Settings → Pages → main / root); no `gh` CLI here.
 
 **Next steps (ideas):**
 - 29.97 drop-frame and 23.976

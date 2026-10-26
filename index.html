@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LTC Generator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>LTC Generator</h1>
+
+    <div id="display" class="display stopped">00:00:00:00</div>
+    <div class="status"><span id="status">Stopped</span> · <span id="fpsLabel">25</span> fps</div>
+
+    <div class="transport">
+      <button id="play" class="primary">Play</button>
+      <button id="stop">Stop</button>
+      <button id="reset">Reset</button>
+    </div>
+
+    <section class="controls">
+      <label>Frame rate
+        <select id="fps">
+          <option value="24">24</option>
+          <option value="25" selected>25</option>
+          <option value="30">30</option>
+        </select>
+      </label>
+
+      <label>Start time
+        <input id="start" type="text" value="00:00:00:00" spellcheck="false" autocomplete="off">
+      </label>
+
+      <label class="wide">Output level <span id="levelLabel">-12 dBFS</span>
+        <input id="level" type="range" min="-40" max="0" step="1" value="-12">
+      </label>
+    </section>
+
+    <section class="controls export">
+      <label>WAV length (seconds)
+        <input id="duration" type="number" min="1" max="3600" step="1" value="60">
+      </label>
+      <button id="export">Export WAV</button>
+    </section>
+
+    <p id="error" class="error" hidden></p>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

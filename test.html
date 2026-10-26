@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LTC Encoder Test</title>
+  <style>
+    body { background: #111; color: #e6e6e6; font: 14px/1.5 ui-monospace, Consolas, monospace; padding: 16px; }
+    .pass { color: #4cd964; } .fail { color: #ff3b30; }
+  </style>
+</head>
+<body>
+  <h1>LTC encoder self-test</h1>
+  <pre id="out"></pre>
+  <script type="module">
+    import { LtcGenerator, SYNC_WORD, toFrames, fromFrames, formatTc, parseTc, renderWav, framesPerDay } from "./ltc.js";
+
+    const out = document.getElementById("out");
+    let fails = 0;
+    const log = (ok, msg) => {
+      if (!ok) fails++;
+      out.innerHTML += `<span class="${ok ? "pass" : "fail"}">${ok ? "PASS" : "FAIL"}</span> ${msg}\n`;
+    };
+
+    // Biphase-mark decoder: interval ~1 bit = 0, two ~half-bit intervals = 1.
+    function decodeBits(samples, sampleRate, fps) {
+      const bitLen = sampleRate / (fps * 80);
+      const edges = [0]; // sample 0 is the first bit-start transition
+      for (let i = 1; i < samples.length; i++) if (Math.sign(samples[i]) !== Math.sign(samples[i - 1])) edges.push(i);
+      const bits = [];
+      let pendingHalf = false;
+      for (let i = 1; i < edges.length; i++) {
+        const d = (edges[i] - edges[i - 1]) / bitLen;
+        if (d > 0.75) {
+          if (pendingHalf || d > 1.25) throw new Error(`bad interval ${d.toFixed(2)} at ${edges[i]}`);
+          bits.push(0);
+        } else if (pendingHalf) { bits.push(1); pendingHalf = false; }
+        else pendingHalf = true;
+      }
+      return bits;
+    }
+
+    function decodeFrames(bits, fps) {
+      const frames = [];
+      const sync = SYNC_WORD.join("");
+      const s = bits.join("");
+      let i = s.indexOf(sync);
+      while (i !== -1 && i + 16 + 80 <= bits.length) {
+        const b = bits.slice(i + 16, i + 96);
+        const v = (o, n) => b.slice(o, o + n).reduce((a, x, k) => a + (x << k), 0);
+        frames.push({
+          tc: { f: v(0, 4) + 10 * v(8, 2), s: v(16, 4) + 10 * v(24, 3), m: v(32, 4) + 10 * v(40, 3), h: v(48, 4) + 10 * v(56, 2) },
+          ones: b.reduce((a, x) => a + x, 0),
+          syncOk: b.slice(64).join("") === sync,
+        });
+        i += 80;
+      }
+      return frames;
+    }
+
+    const cases = [];
+    for (const fps of [24, 25, 30]) for (const sr of [44100, 48000, 96000]) cases.push({ fps, sr, start: "01:02:03:04" });
+    for (const fps of [24, 25, 30]) cases.push({ fps, sr: 48000, start: `23:59:59:${fps - 3}` });
+
+    for (const { fps, sr, start } of cases) {
+      const startFrame = toFrames(parseTc(start, fps), fps);
+      const secs = 2;
+      const samples = new Float32Array(sr * secs);
+      const gen = new LtcGenerator(fps, sr, startFrame);
+      // Fill in 128-sample blocks like an AudioWorklet does.
+      for (let o = 0; o < samples.length; o += 128) gen.fill(samples.subarray(o, o + 128), 0.5);
+      let msg = `${fps} fps @ ${sr} Hz from ${start}: `;
+      try {
+        const frames = decodeFrames(decodeBits(samples, sr, fps), fps);
+        // First frame start lacks a leading edge, so decoding begins at frame 1 sync word.
+        const expectFirst = (startFrame + 1) % framesPerDay(fps);
+        const okSeq = frames.every((fr, k) => toFrames(fr.tc, fps) === (expectFirst + k) % framesPerDay(fps));
+        const okParity = frames.every((fr) => fr.ones % 2 === 0);
+        const okSync = frames.every((fr) => fr.syncOk);
+        const okCount = frames.length >= fps * secs - 3;
+        msg += `${frames.length} frames, first ${formatTc(frames[0].tc)}, last ${formatTc(frames.at(-1).tc)}`;
+        log(okSeq && okParity && okSync && okCount, msg + (okSeq ? "" : " [sequence]") + (okParity ? "" : " [parity]") + (okSync ? "" : " [sync]") + (okCount ? "" : " [count]"));
+      } catch (e) {
+        log(false, msg + e.message);
+      }
+    }
+
+    // WAV header + length
+    const blob = renderWav({ fps: 25, startFrame: 0, seconds: 1, db: -6 });
+    const head = new DataView(await blob.arrayBuffer());
+    log(blob.size === 44 + 48000 * 2 && head.getUint32(24, true) === 48000 && head.getUint16(22, true) === 1,
+      `WAV 1 s @ 48 kHz mono 16-bit, size ${blob.size}`);
+    const peak = Math.max(...Array.from({ length: 1000 }, (_, i) => Math.abs(head.getInt16(44 + i * 2, true))));
+    log(Math.abs(peak / 32767 - 0.501) < 0.01, `WAV -6 dBFS peak ${(peak / 32767).toFixed(3)}`);
+
+    log(parseTc("00:00:00:25", 25) === null && parseTc("00:00:00:24", 25) !== null, "parseTc rejects FF >= fps");
+    log(formatTc(fromFrames(framesPerDay(30), 30)) === "00:00:00:00", "24h wrap");
+
+    out.innerHTML += `\n${fails ? `<span class="fail">${fails} FAILED</span>` : `<span class="pass">ALL PASS</span>`}\n`;
+    document.title = fails ? "FAIL" : "PASS";
+  </script>
+</body>
+</html>

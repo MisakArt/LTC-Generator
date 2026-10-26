@@ -1,0 +1,116 @@
+:root {
+  --bg: #111;
+  --panel: #1c1c1c;
+  --fg: #e6e6e6;
+  --dim: #888;
+  --accent: #ff3b30;
+  --line: #333;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.4 system-ui, sans-serif;
+}
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+h1 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0 0 24px;
+}
+
+.display {
+  font-family: ui-monospace, "SF Mono", Consolas, "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2.5rem, 13vw, 8rem);
+  font-weight: 700;
+  text-align: center;
+  padding: 24px 0;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.display.stopped { color: var(--fg); }
+
+.status {
+  text-align: center;
+  color: var(--dim);
+  margin: 8px 0 24px;
+}
+
+.transport {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+button {
+  font: inherit;
+  padding: 12px 24px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--fg);
+  cursor: pointer;
+  min-width: 96px;
+}
+
+button:hover:not(:disabled) { border-color: var(--dim); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 0.875rem;
+}
+
+label.wide { grid-column: 1 / -1; }
+label span { color: var(--fg); }
+
+input, select {
+  font: inherit;
+  font-size: 1rem;
+  padding: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+#start { font-family: ui-monospace, Consolas, monospace; }
+input:invalid, input.bad { border-color: var(--accent); }
+input[type="range"] { padding: 0; accent-color: var(--accent); }
+
+.error { color: var(--accent); text-align: center; }

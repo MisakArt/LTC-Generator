@@ -22,10 +22,10 @@ Reference sites for ideas:
 - ES modules + AudioWorklet need http(s). `file://` does not work. Run local static server.
 - Bit layout per SMPTE 12M. Polarity-correction bit: bit 27 (24/30 fps), bit 59 (25 fps). Keeps ones-count even.
 - Rates live in `RATES` (ltc.js): `fps` = timecode base (24/25/30), `rate` = real frames/s (x1000/1001 for 23.976, 29.97), `df` = drop frame. Frame counts are real frames; `toFrames`/`fromFrames` do DF conversion. DF day = 2589408 frames. DF flag = bit 10. DF shown with `;`.
-- User bits: 8 nibbles UB1..UB8 (bits 4,12,…,60). Hex string written like a number (last digit = UB1). Date mode = SMPTE 309M layout as in libltc (UB1/2 day, UB3/4 month, UB5/6 year, UB7/8 time zone 0 = UTC) and sets BGF2 (bit 59 at 24/30, bit 43 at 25).
+- Strict SMPTE 12M frame: user bits (UB1..UB8), colour frame flag (bit 11) and binary group flags (BGF0/1/2) always 0. User bits feature removed 2026-10-26 on user request.
 - Rise time: linear ramp, 25 µs 10–90 % default, placed at exact sub-sample edge time. `riseUs: 0` = hard square.
 - Frame counter wraps at 24h.
-- WAV export: 44.1/48/96 kHz, mono, 16/24-bit PCM or 32-bit float. Length in minutes (0.1–60); file size, end timecode, frames, samples/frame and bit rate shown live.
+- WAV export: 44.1/48/96 kHz, mono, 16/24-bit PCM or 32-bit float. Length in minutes (0.1–60); file size (only below the bit-depth select, not in its options), end timecode, frames, samples/frame and bit rate shown live.
 - Output device select uses `AudioContext.setSinkId` (Chromium only; hidden elsewhere). Device names need mic permission ("Show device names" button).
 - Shortcuts: Space = play/stop, R = reset (ignored while typing in a field).
 - Local test: any static server on port 8123 (e.g. `npx http-server -p 8123 -c-1`), open `/test.html`. Browser-pane launch config is in parent folder `.claude/launch.json` (not in repo; points at a temp server script, recreate if gone).
@@ -38,6 +38,4 @@ Self-test (`test.html`) 63 checks pass in browser. Output device switching not t
 
 **Next steps (ideas):**
 - Output channel select (LTC on L / R / both) so the other channel can carry audio
-- Date user bits rolling over at midnight during long playback (now fixed at start date)
-- Time-zone code for 309M date mode
 - Jam to time of day (start from current clock)

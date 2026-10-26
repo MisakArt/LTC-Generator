@@ -14,8 +14,7 @@
   <pre id="out"></pre>
   <script type="module">
     import {
-      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, wavSize, framesPerDay,
-      userBitsFromHex, userBitsFromDate, formatUserBits, SMPTE_RISE_US,
+      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, wavSize, framesPerDay, SMPTE_RISE_US,
     } from "./ltc.js";
 
     const out = document.getElementById("out");
@@ -126,20 +125,13 @@
         "DF parseTc rejects dropped labels");
     }
 
-    // User bits
-    {
-      const ubHex = userBitsFromHex("1234ABCD");
-      log(formatUserBits(ubHex) === "1234ABCD" && ubHex.groups[0] === 0xd && userBitsFromHex("123") === null, "user bits hex parse/format");
-      for (const id of ["25", "30"]) {
-        const r = RATES[id];
-        for (const ub of [ubHex, userBitsFromDate(26, 10, 26)]) {
-          const frames = decodeFrames(decodeBits(generate(r, 48000, 0, 0.5, { userBits: ub }), 48000, r));
-          const bgf2 = r.fps === 25 ? 43 : 59;
-          const okUb = frames.every((fr) => fr.ub.join() === ub.groups.join());
-          const okFlag = frames.every((fr) => fr.bits[bgf2] === (ub.date ? 1 : 0) && fr.ones % 2 === 0);
-          log(okUb && okFlag, `${r.label} user bits ${ub.date ? "date" : "hex"} ${formatUserBits(ub)} decoded ${formatUserBits({ groups: frames[0].ub })}, BGF2=${frames[0].bits[bgf2]}`);
-        }
-      }
+    // SMPTE 12M layout: user bits, colour frame flag (11) and binary group flags all 0.
+    for (const id of Object.keys(RATES)) {
+      const r = RATES[id];
+      const frames = decodeFrames(decodeBits(generate(r, 48000, 0, 0.5, {}), 48000, r));
+      const flags = r.fps === 25 ? [11, 27, 43, 58] : [11, 43, 58, 59];
+      const ok = frames.length > 0 && frames.every((fr) => fr.ub.every((g) => g === 0) && flags.every((k) => fr.bits[k] === 0));
+      log(ok, `${r.label} SMPTE 12M: user bits 0, flag bits ${flags.join("/")} = 0`);
     }
 
     // Rise time: 10–90 % ≈ 25 µs at 96 kHz

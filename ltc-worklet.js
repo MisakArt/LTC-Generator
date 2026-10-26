@@ -1,9 +1,9 @@
 import { LtcGenerator, RATES } from "./ltc.js";
 
 class LtcProcessor extends AudioWorkletProcessor {
-  constructor({ processorOptions: { rateId, startFrame, userBits, riseUs } }) {
+  constructor({ processorOptions: { rateId, startFrame, riseUs } }) {
     super();
-    this.gen = new LtcGenerator(RATES[rateId], sampleRate, startFrame, { userBits, riseUs });
+    this.gen = new LtcGenerator(RATES[rateId], sampleRate, startFrame, { riseUs });
     this.gen.onFrame = (frame) => this.port.postMessage(frame);
     this.running = true;
     this.port.onmessage = (e) => {

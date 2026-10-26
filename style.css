@@ -22,6 +22,7 @@ main {
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px;
+  zoom: 0.85; /* whole app 15 % smaller */
 }
 
 h1 {
@@ -38,8 +39,9 @@ h1 {
   font-variant-numeric: tabular-nums;
   font-size: clamp(2.5rem, 13vw, 8rem);
   font-weight: 700;
+  line-height: 1.12; /* height 20 % less than 1.4 line + 24px padding */
   text-align: center;
-  padding: 24px 0;
+  padding: 19.2px 0;
   background: #000;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -67,9 +69,11 @@ h1 {
 
 .transport {
   display: flex;
-  gap: 12px;
+  gap: 14.4px;
   justify-content: center;
 }
+
+.transport button { min-width: 115.2px; } /* 20 % wider than default 96px */
 
 .hint {
   text-align: center;

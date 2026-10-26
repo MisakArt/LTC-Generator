@@ -1,14 +1,12 @@
 import {
-  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav, wavSize, BIT_DEPTHS,
-  NO_USER_BITS, userBitsFromHex, userBitsFromDate, formatUserBits,
+  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav, wavSize,
 } from "./ltc.js";
 
 const $ = (id) => document.getElementById(id);
 const ui = {
-  display: $("display"), scope: $("scope"), status: $("status"), fpsLabel: $("fpsLabel"), ubLabel: $("ubLabel"),
+  display: $("display"), scope: $("scope"), status: $("status"), fpsLabel: $("fpsLabel"),
   play: $("play"), stop: $("stop"), reset: $("reset"),
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
-  ubMode: $("ubMode"), ubHex: $("ubHex"), ubHexWrap: $("ubHexWrap"), ubDate: $("ubDate"), ubDateWrap: $("ubDateWrap"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"),
   duration: $("duration"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"),
   infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), export: $("export"), error: $("error"),
@@ -32,26 +30,6 @@ function startFrame() {
   const tc = parseTc(ui.start.value, rate());
   ui.start.classList.toggle("bad", !tc);
   return tc ? toFrames(tc, rate()) : null;
-}
-
-// Returns user bits, or null if hex field is invalid.
-function userBits() {
-  const mode = ui.ubMode.value;
-  if (mode === "hex") {
-    const ub = userBitsFromHex(ui.ubHex.value);
-    ui.ubHex.classList.toggle("bad", !ub);
-    return ub;
-  }
-  if (mode === "date") {
-    const [y, m, d] = (ui.ubDate.value || todayIso()).split("-").map(Number);
-    return userBitsFromDate(d, m, y % 100);
-  }
-  return NO_USER_BITS;
-}
-
-function todayIso() {
-  const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
 }
 
 function showError(msg) {
@@ -89,9 +67,7 @@ function drawScope() {
 
   // 2 samples per pixel; generator works at any sample rate. Full scale = 0 dBFS.
   const samples = new Float32Array(w * 2);
-  const gen = new LtcGenerator(rate(), rate().rate * samples.length, frame, {
-    userBits: userBits() ?? NO_USER_BITS, riseUs: riseUs(),
-  });
+  const gen = new LtcGenerator(rate(), rate().rate * samples.length, frame, { riseUs: riseUs() });
   gen.fill(samples, dbToGain(db()));
   const amp = h / 2 - 4 * dpr;
   g.strokeStyle = playing ? "#ff3b30" : "#e6e6e6";
@@ -110,10 +86,6 @@ function render() {
   ui.display.classList.toggle("stopped", !playing);
   ui.status.textContent = playing ? "Playing" : "Stopped";
   ui.fpsLabel.textContent = rate().label;
-  const ub = ui.ubMode.value === "off" ? null : userBits();
-  ui.ubLabel.textContent = ub ? ` · UB ${formatUserBits(ub)}` : "";
-  ui.ubHexWrap.hidden = ui.ubMode.value !== "hex";
-  ui.ubDateWrap.hidden = ui.ubMode.value !== "date";
   ui.play.disabled = playing;
   ui.stop.disabled = !playing;
   ui.fps.disabled = playing;
@@ -123,8 +95,6 @@ function render() {
 
 async function play() {
   if (playing || starting) return;
-  const ub = userBits();
-  if (!ub) return showError("Invalid user bits. Use 8 hex digits (0–9, A–F).");
   showError("");
   starting = true;
   ui.play.disabled = true;
@@ -147,7 +117,7 @@ async function play() {
   node = new AudioWorkletNode(ctx, "ltc", {
     numberOfInputs: 0,
     outputChannelCount: [ctx.destination.channelCount],
-    processorOptions: { rateId: rate().id, startFrame: frame, userBits: ub, riseUs: riseUs() },
+    processorOptions: { rateId: rate().id, startFrame: frame, riseUs: riseUs() },
   });
   sent = false;
   node.port.onmessage = (e) => { frame = e.data; sent = true; render(); };
@@ -189,15 +159,13 @@ function restartIfPlaying() {
 function exportWav() {
   const s = startFrame();
   if (s === null) return showError("Invalid start time. Use HH:MM:SS:FF, FF < fps (DF: no ;00/;01 at minutes not ÷10).");
-  const ub = userBits();
-  if (!ub) return showError("Invalid user bits. Use 8 hex digits (0–9, A–F).");
   const minutes = wavMinutes();
   if (minutes === null) return showError("WAV length must be 0.1–60 minutes.");
   showError("");
   const seconds = minutes * 60;
   const sampleRate = Number(ui.sampleRate.value);
   const bitDepth = Number(ui.bitDepth.value);
-  const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, bitDepth, userBits: ub, riseUs: riseUs() });
+  const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, bitDepth, riseUs: riseUs() });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `LTC_${rate().id}fps_${ui.start.value.replace(/\D/g, "")}_${minutes}min_${sampleRate / 1000}k_${bitDepth}bit.wav`;
@@ -215,7 +183,7 @@ function formatBytes(b) {
   return b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`;
 }
 
-// File size for current choice (also per bit depth in the dropdown), end timecode and signal stats.
+// File size for current choice, end timecode and signal stats.
 function updateExportInfo() {
   const m = wavMinutes();
   const sr = Number(ui.sampleRate.value);
@@ -228,10 +196,6 @@ function updateExportInfo() {
   ui.infoFrames.textContent = frames === null ? "–" : frames.toLocaleString("en-US");
   ui.infoSpf.textContent = (sr / r.rate).toFixed(3);
   ui.infoBitrate.textContent = `${((80 * r.rate) / 1000).toFixed(3)} kbit/s`;
-  BIT_DEPTHS.forEach((d, i) => {
-    const name = d === 32 ? "32-bit float" : `${d}-bit`;
-    ui.bitDepth.options[i].text = m === null ? name : `${name} · ${formatBytes(wavSize(m * 60, sr, d))}`;
-  });
 }
 
 function updateLevel() {
@@ -302,17 +266,12 @@ ui.bitDepth.onchange = updateExportInfo;
 ui.fps.onchange = () => { startFrame(); reset(); updateExportInfo(); };
 ui.start.onchange = reset;
 ui.start.oninput = () => { startFrame(); updateExportInfo(); };
-ui.ubMode.onchange = restartIfPlaying;
-ui.ubHex.oninput = render;
-ui.ubHex.onchange = restartIfPlaying;
-ui.ubDate.onchange = restartIfPlaying;
 ui.rise.onchange = restartIfPlaying;
 ui.sink.onchange = changeSink;
 ui.sinkScan.onclick = scanSinks;
 document.addEventListener("keydown", onKey);
 window.addEventListener("resize", queueScope);
 
-ui.ubDate.value = todayIso();
 frame = startFrame() ?? 0;
 updateLevel();
 updateExportInfo();

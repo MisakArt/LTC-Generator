@@ -13,7 +13,10 @@
   <h1>LTC encoder self-test</h1>
   <pre id="out"></pre>
   <script type="module">
-    import { LtcGenerator, SYNC_WORD, toFrames, fromFrames, formatTc, parseTc, renderWav, framesPerDay } from "./ltc.js";
+    import {
+      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, framesPerDay,
+      userBitsFromHex, userBitsFromDate, formatUserBits, SMPTE_RISE_US,
+    } from "./ltc.js";
 
     const out = document.getElementById("out");
     let fails = 0;
@@ -23,10 +26,14 @@
     };
 
     // Biphase-mark decoder: interval ~1 bit = 0, two ~half-bit intervals = 1.
-    function decodeBits(samples, sampleRate, fps) {
-      const bitLen = sampleRate / (fps * 80);
+    function decodeBits(samples, sampleRate, r) {
+      const bitLen = sampleRate / (r.rate * 80);
       const edges = [0]; // sample 0 is the first bit-start transition
-      for (let i = 1; i < samples.length; i++) if (Math.sign(samples[i]) !== Math.sign(samples[i - 1])) edges.push(i);
+      for (let i = 1; i < samples.length; i++) {
+        if ((samples[i] >= 0) === (samples[i - 1] >= 0)) continue;
+        if (i < bitLen / 4) continue; // crossing of the first (ramped) edge itself
+        edges.push(i);
+      }
       const bits = [];
       let pendingHalf = false;
       for (let i = 1; i < edges.length; i++) {
@@ -40,7 +47,7 @@
       return bits;
     }
 
-    function decodeFrames(bits, fps) {
+    function decodeFrames(bits) {
       const frames = [];
       const sync = SYNC_WORD.join("");
       const s = bits.join("");
@@ -50,6 +57,8 @@
         const v = (o, n) => b.slice(o, o + n).reduce((a, x, k) => a + (x << k), 0);
         frames.push({
           tc: { f: v(0, 4) + 10 * v(8, 2), s: v(16, 4) + 10 * v(24, 3), m: v(32, 4) + 10 * v(40, 3), h: v(48, 4) + 10 * v(56, 2) },
+          ub: Array.from({ length: 8 }, (_, k) => v(4 + k * 8, 4)),
+          bits: b,
           ones: b.reduce((a, x) => a + x, 0),
           syncOk: b.slice(64).join("") === sync,
         });
@@ -58,43 +67,108 @@
       return frames;
     }
 
-    const cases = [];
-    for (const fps of [24, 25, 30]) for (const sr of [44100, 48000, 96000]) cases.push({ fps, sr, start: "01:02:03:04" });
-    for (const fps of [24, 25, 30]) cases.push({ fps, sr: 48000, start: `23:59:59:${fps - 3}` });
-
-    for (const { fps, sr, start } of cases) {
-      const startFrame = toFrames(parseTc(start, fps), fps);
-      const secs = 2;
-      const samples = new Float32Array(sr * secs);
-      const gen = new LtcGenerator(fps, sr, startFrame);
+    function generate(r, sr, startFrame, secs, opts) {
+      const samples = new Float32Array(Math.round(sr * secs));
+      const gen = new LtcGenerator(r, sr, startFrame, opts);
       // Fill in 128-sample blocks like an AudioWorklet does.
       for (let o = 0; o < samples.length; o += 128) gen.fill(samples.subarray(o, o + 128), 0.5);
-      let msg = `${fps} fps @ ${sr} Hz from ${start}: `;
+      return samples;
+    }
+
+    const cases = [];
+    for (const id of Object.keys(RATES)) for (const sr of [44100, 48000, 96000]) for (const riseUs of [0, SMPTE_RISE_US])
+      cases.push({ id, sr, riseUs, start: "01:02:03:04" });
+    for (const id of Object.keys(RATES)) cases.push({ id, sr: 48000, riseUs: SMPTE_RISE_US, start: `23:59:59:${RATES[id].fps - 3}` });
+    cases.push({ id: "29.97df", sr: 48000, riseUs: SMPTE_RISE_US, start: "00:00:59;20" }); // drop at minute 1
+    cases.push({ id: "29.97df", sr: 48000, riseUs: SMPTE_RISE_US, start: "00:09:59;20" }); // no drop at minute 10
+
+    for (const { id, sr, riseUs, start } of cases) {
+      const r = RATES[id];
+      const startFrame = toFrames(parseTc(start, r), r);
+      const secs = 2;
+      const samples = generate(r, sr, startFrame, secs, { riseUs });
+      let msg = `${r.label} @ ${sr} Hz rise ${riseUs} µs from ${start}: `;
       try {
-        const frames = decodeFrames(decodeBits(samples, sr, fps), fps);
+        const frames = decodeFrames(decodeBits(samples, sr, r));
         // First frame start lacks a leading edge, so decoding begins at frame 1 sync word.
-        const expectFirst = (startFrame + 1) % framesPerDay(fps);
-        const okSeq = frames.every((fr, k) => toFrames(fr.tc, fps) === (expectFirst + k) % framesPerDay(fps));
+        const expectFirst = (startFrame + 1) % framesPerDay(r);
+        const okSeq = frames.every((fr, k) => formatTc(fr.tc) === formatTc(fromFrames(expectFirst + k, r)));
         const okParity = frames.every((fr) => fr.ones % 2 === 0);
         const okSync = frames.every((fr) => fr.syncOk);
-        const okCount = frames.length >= fps * secs - 3;
-        msg += `${frames.length} frames, first ${formatTc(frames[0].tc)}, last ${formatTc(frames.at(-1).tc)}`;
-        log(okSeq && okParity && okSync && okCount, msg + (okSeq ? "" : " [sequence]") + (okParity ? "" : " [parity]") + (okSync ? "" : " [sync]") + (okCount ? "" : " [count]"));
+        const okDf = frames.every((fr) => fr.bits[10] === (r.df ? 1 : 0));
+        const okCount = frames.length >= Math.floor(r.rate * secs) - 3;
+        msg += `${frames.length} frames, first ${formatTc(frames[0].tc, r)}, last ${formatTc(frames.at(-1).tc, r)}`;
+        log(okSeq && okParity && okSync && okDf && okCount, msg + (okSeq ? "" : " [sequence]") + (okParity ? "" : " [parity]") +
+          (okSync ? "" : " [sync]") + (okDf ? "" : " [df flag]") + (okCount ? "" : " [count]"));
       } catch (e) {
         log(false, msg + e.message);
       }
     }
 
+    // Long-run timing: 29.97 frames per second, not 30.
+    {
+      const r = RATES["29.97df"];
+      const n = decodeFrames(decodeBits(generate(r, 16000, 0, 600.6, {}), 16000, r)).length;
+      log(Math.abs(n - 17998) <= 2, `29.97 rate: ${n} frames decoded in 600.6 s (expect ~17998; 30 fps would give ~18016)`);
+    }
+
+    // Drop-frame conversion
+    {
+      const r = RATES["29.97df"];
+      const f = (n) => formatTc(fromFrames(n, r), r);
+      log(f(1799) === "00:00:59;29" && f(1800) === "00:01:00;02", `DF minute 1: ${f(1799)} -> ${f(1800)}`);
+      log(f(17981) === "00:09:59;29" && f(17982) === "00:10:00;00", `DF minute 10: ${f(17981)} -> ${f(17982)}`);
+      log(f(framesPerDay(r) - 1) === "23:59:59;29" && framesPerDay(r) === 2589408, `DF day = ${framesPerDay(r)} frames, last ${f(framesPerDay(r) - 1)}`);
+      let ok = true;
+      for (let n = 0; n < 36000 && ok; n++) ok = toFrames(fromFrames(n, r), r) === n;
+      log(ok, "DF toFrames(fromFrames(n)) round trip, first 20 min");
+      log(parseTc("00:01:00;00", r) === null && parseTc("00:01:00;02", r) !== null && parseTc("00:10:00;00", r) !== null,
+        "DF parseTc rejects dropped labels");
+    }
+
+    // User bits
+    {
+      const ubHex = userBitsFromHex("1234ABCD");
+      log(formatUserBits(ubHex) === "1234ABCD" && ubHex.groups[0] === 0xd && userBitsFromHex("123") === null, "user bits hex parse/format");
+      for (const id of ["25", "30"]) {
+        const r = RATES[id];
+        for (const ub of [ubHex, userBitsFromDate(26, 10, 26)]) {
+          const frames = decodeFrames(decodeBits(generate(r, 48000, 0, 0.5, { userBits: ub }), 48000, r));
+          const bgf2 = r.fps === 25 ? 43 : 59;
+          const okUb = frames.every((fr) => fr.ub.join() === ub.groups.join());
+          const okFlag = frames.every((fr) => fr.bits[bgf2] === (ub.date ? 1 : 0) && fr.ones % 2 === 0);
+          log(okUb && okFlag, `${r.label} user bits ${ub.date ? "date" : "hex"} ${formatUserBits(ub)} decoded ${formatUserBits({ groups: frames[0].ub })}, BGF2=${frames[0].bits[bgf2]}`);
+        }
+      }
+    }
+
+    // Rise time: 10–90 % ≈ 25 µs at 96 kHz
+    {
+      const sr = 96000;
+      const s = generate(RATES["25"], sr, 0, 0.05, { riseUs: SMPTE_RISE_US });
+      // Rising edge: time from -0.4 to +0.4 (10 % / 90 % of ±0.5 swing), linear interpolation.
+      const cross = (lvl, from) => { for (let i = from; i < s.length - 1; i++) if (s[i] < lvl && s[i + 1] >= lvl) return i + (lvl - s[i]) / (s[i + 1] - s[i]); };
+      const t10 = cross(-0.4, 100), t90 = cross(0.4, Math.floor(t10));
+      const us = ((t90 - t10) / sr) * 1e6;
+      log(Math.abs(us - 25) < 3, `rise time 10–90 % = ${us.toFixed(1)} µs`);
+      const hard = generate(RATES["25"], sr, 0, 0.05, { riseUs: 0 });
+      log(hard.every((x) => Math.abs(x) === 0.5), "hard square only ±amp");
+    }
+
     // WAV header + length
-    const blob = renderWav({ fps: 25, startFrame: 0, seconds: 1, db: -6 });
+    for (const sr of [44100, 48000, 96000]) {
+      const blob = renderWav({ r: RATES["25"], startFrame: 0, seconds: 1, db: -6, sampleRate: sr });
+      const head = new DataView(await blob.arrayBuffer());
+      log(blob.size === 44 + sr * 2 && head.getUint32(24, true) === sr && head.getUint16(22, true) === 1,
+        `WAV 1 s @ ${sr} Hz mono 16-bit, size ${blob.size}`);
+    }
+    const blob = renderWav({ r: RATES["25"], startFrame: 0, seconds: 1, db: -6 });
     const head = new DataView(await blob.arrayBuffer());
-    log(blob.size === 44 + 48000 * 2 && head.getUint32(24, true) === 48000 && head.getUint16(22, true) === 1,
-      `WAV 1 s @ 48 kHz mono 16-bit, size ${blob.size}`);
     const peak = Math.max(...Array.from({ length: 1000 }, (_, i) => Math.abs(head.getInt16(44 + i * 2, true))));
     log(Math.abs(peak / 32767 - 0.501) < 0.01, `WAV -6 dBFS peak ${(peak / 32767).toFixed(3)}`);
 
-    log(parseTc("00:00:00:25", 25) === null && parseTc("00:00:00:24", 25) !== null, "parseTc rejects FF >= fps");
-    log(formatTc(fromFrames(framesPerDay(30), 30)) === "00:00:00:00", "24h wrap");
+    log(parseTc("00:00:00:25", RATES["25"]) === null && parseTc("00:00:00:24", RATES["25"]) !== null, "parseTc rejects FF >= fps");
+    log(formatTc(fromFrames(framesPerDay(RATES["30"]), RATES["30"])) === "00:00:00:00", "24h wrap");
 
     out.innerHTML += `\n${fails ? `<span class="fail">${fails} FAILED</span>` : `<span class="pass">ALL PASS</span>`}\n`;
     document.title = fails ? "FAIL" : "PASS";

@@ -9,6 +9,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -58,7 +59,13 @@ h1 {
   display: flex;
   gap: 12px;
   justify-content: center;
-  margin-bottom: 32px;
+}
+
+.hint {
+  text-align: center;
+  color: var(--dim);
+  font-size: 0.8rem;
+  margin: 8px 0 32px;
 }
 
 button {

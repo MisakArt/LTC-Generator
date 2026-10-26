@@ -11,26 +11,51 @@
     <h1>LTC Generator</h1>
 
     <div id="display" class="display stopped">00:00:00:00</div>
-    <div class="status"><span id="status">Stopped</span> · <span id="fpsLabel">25</span> fps</div>
+    <div class="status"><span id="status">Stopped</span> · <span id="fpsLabel">25</span> fps<span id="ubLabel"></span></div>
 
     <div class="transport">
       <button id="play" class="primary">Play</button>
       <button id="stop">Stop</button>
       <button id="reset">Reset</button>
     </div>
+    <p class="hint">Space = play / stop · R = reset</p>
 
     <section class="controls">
       <label>Frame rate
-        <select id="fps">
-          <option value="24">24</option>
-          <option value="25" selected>25</option>
-          <option value="30">30</option>
-        </select>
+        <select id="fps"></select>
       </label>
 
       <label>Start time
         <input id="start" type="text" value="00:00:00:00" spellcheck="false" autocomplete="off">
       </label>
+
+      <label>User bits
+        <select id="ubMode">
+          <option value="off">Off</option>
+          <option value="hex">Hex</option>
+          <option value="date">Date (SMPTE 309M)</option>
+        </select>
+      </label>
+
+      <label id="ubHexWrap" hidden>User bits (8 hex digits)
+        <input id="ubHex" type="text" value="00000000" maxlength="8" spellcheck="false" autocomplete="off">
+      </label>
+
+      <label id="ubDateWrap" hidden>Date
+        <input id="ubDate" type="date">
+      </label>
+
+      <label>Edge shape
+        <select id="rise">
+          <option value="25" selected>25 µs rise (SMPTE)</option>
+          <option value="0">Hard square</option>
+        </select>
+      </label>
+
+      <label id="sinkWrap" hidden>Output device
+        <select id="sink"><option value="">System default</option></select>
+      </label>
+      <button id="sinkScan" hidden>Show device names</button>
 
       <label class="wide">Output level <span id="levelLabel">-12 dBFS</span>
         <input id="level" type="range" min="-40" max="0" step="1" value="-12">
@@ -40,6 +65,13 @@
     <section class="controls export">
       <label>WAV length (seconds)
         <input id="duration" type="number" min="1" max="3600" step="1" value="60">
+      </label>
+      <label>Sample rate
+        <select id="sampleRate">
+          <option value="44100">44.1 kHz</option>
+          <option value="48000" selected>48 kHz</option>
+          <option value="96000">96 kHz</option>
+        </select>
       </label>
       <button id="export">Export WAV</button>
     </section>

@@ -38,7 +38,6 @@ Self-test (`test.html`) 63 checks pass in browser. Output device switching not t
 
 **Next steps (ideas):**
 - Output channel select (LTC on L / R / both) so the other channel can carry audio
-- 24-bit WAV export
 - Date user bits rolling over at midnight during long playback (now fixed at start date)
 - Time-zone code for 309M date mode
 - Jam to time of day (start from current clock)

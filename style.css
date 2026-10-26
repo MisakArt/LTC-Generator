@@ -130,4 +130,18 @@ input, select {
 input:invalid, input.bad { border-color: var(--accent); }
 input[type="range"] { padding: 0; accent-color: var(--accent); }
 
+.info {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem;
+}
+
+.info dt { color: var(--dim); }
+.info dd { margin: 2px 0 0; font-family: ui-monospace, Consolas, monospace; }
+
 .error { color: var(--accent); text-align: center; }

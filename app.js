@@ -10,7 +10,8 @@ const ui = {
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   ubMode: $("ubMode"), ubHex: $("ubHex"), ubHexWrap: $("ubHexWrap"), ubDate: $("ubDate"), ubDateWrap: $("ubDateWrap"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"),
-  duration: $("duration"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), export: $("export"), error: $("error"),
+  duration: $("duration"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"),
+  infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), export: $("export"), error: $("error"),
 };
 
 for (const r of Object.values(RATES)) ui.fps.add(new Option(r.label, r.id, false, r.id === "25"));
@@ -214,12 +215,19 @@ function formatBytes(b) {
   return b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`;
 }
 
-// File size for current choice, and per bit depth in the dropdown.
-function updateWavSize() {
+// File size for current choice (also per bit depth in the dropdown), end timecode and signal stats.
+function updateExportInfo() {
   const m = wavMinutes();
   const sr = Number(ui.sampleRate.value);
+  const r = rate();
+  const s = parseTc(ui.start.value, r);
+  const frames = m === null ? null : Math.floor(m * 60 * r.rate);
   ui.duration.classList.toggle("bad", m === null);
   ui.wavSize.textContent = m === null ? "–" : formatBytes(wavSize(m * 60, sr, Number(ui.bitDepth.value)));
+  ui.infoEnd.textContent = frames === null || !s ? "–" : formatTc(fromFrames(toFrames(s, r) + frames, r), r);
+  ui.infoFrames.textContent = frames === null ? "–" : frames.toLocaleString("en-US");
+  ui.infoSpf.textContent = (sr / r.rate).toFixed(3);
+  ui.infoBitrate.textContent = `${((80 * r.rate) / 1000).toFixed(3)} kbit/s`;
   BIT_DEPTHS.forEach((d, i) => {
     const name = d === 32 ? "32-bit float" : `${d}-bit`;
     ui.bitDepth.options[i].text = m === null ? name : `${name} · ${formatBytes(wavSize(m * 60, sr, d))}`;
@@ -288,12 +296,12 @@ ui.stop.onclick = stop;
 ui.reset.onclick = reset;
 ui.export.onclick = exportWav;
 ui.level.oninput = updateLevel;
-ui.duration.oninput = updateWavSize;
-ui.sampleRate.onchange = updateWavSize;
-ui.bitDepth.onchange = updateWavSize;
-ui.fps.onchange = () => { startFrame(); reset(); };
+ui.duration.oninput = updateExportInfo;
+ui.sampleRate.onchange = updateExportInfo;
+ui.bitDepth.onchange = updateExportInfo;
+ui.fps.onchange = () => { startFrame(); reset(); updateExportInfo(); };
 ui.start.onchange = reset;
-ui.start.oninput = startFrame;
+ui.start.oninput = () => { startFrame(); updateExportInfo(); };
 ui.ubMode.onchange = restartIfPlaying;
 ui.ubHex.oninput = render;
 ui.ubHex.onchange = restartIfPlaying;
@@ -307,5 +315,5 @@ window.addEventListener("resize", queueScope);
 ui.ubDate.value = todayIso();
 frame = startFrame() ?? 0;
 updateLevel();
-updateWavSize();
+updateExportInfo();
 render();

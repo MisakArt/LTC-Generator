@@ -8,7 +8,7 @@ const ui = {
   play: $("play"), stop: $("stop"), reset: $("reset"),
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"),
-  duration: $("duration"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"),
+  duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"),
   infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), export: $("export"), error: $("error"),
 };
 
@@ -159,24 +159,36 @@ function restartIfPlaying() {
 function exportWav() {
   const s = startFrame();
   if (s === null) return showError("Invalid start time. Use HH:MM:SS:FF, FF < fps (DF: no ;00/;01 at minutes not ÷10).");
-  const minutes = wavMinutes();
-  if (minutes === null) return showError("WAV length must be 0.1–60 minutes.");
+  const seconds = wavSeconds();
+  if (seconds === null) return showError("WAV length must be 1–60 whole minutes or 1–3600 whole seconds.");
   showError("");
-  const seconds = minutes * 60;
+  const len = inMinutes() ? `${ui.duration.value}min` : `${seconds}s`;
   const sampleRate = Number(ui.sampleRate.value);
   const bitDepth = Number(ui.bitDepth.value);
   const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, bitDepth, riseUs: riseUs() });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `LTC_${rate().id}fps_${ui.start.value.replace(/\D/g, "")}_${minutes}min_${sampleRate / 1000}k_${bitDepth}bit.wav`;
+  a.download = `LTC_${rate().id}fps_${ui.start.value.replace(/\D/g, "")}_${len}_${sampleRate / 1000}k_${bitDepth}bit.wav`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// WAV length in minutes, or null if out of range.
-function wavMinutes() {
-  const m = Number(ui.duration.value);
-  return m >= 0.1 && m <= 60 ? m : null;
+const inMinutes = () => ui.durationUnit.value === "min";
+
+// WAV length in seconds, or null if out of range. Minutes 0.1–60, seconds whole 1–3600.
+function wavSeconds() {
+  const v = Number(ui.duration.value);
+  if (inMinutes()) return Number.isInteger(v) && v >= 1 && v <= 60 ? v * 60 : null;
+  return Number.isInteger(v) && v >= 1 && v <= 3600 ? v : null;
+}
+
+// Keep the same length when switching unit.
+function changeDurationUnit() {
+  const v = Number(ui.duration.value);
+  Object.assign(ui.duration, inMinutes()
+    ? { min: 1, max: 60, step: 1, value: Math.max(1, Math.round(v / 60)) }
+    : { min: 1, max: 3600, step: 1, value: Math.max(1, Math.round(v * 60)) });
+  updateExportInfo();
 }
 
 function formatBytes(b) {
@@ -185,13 +197,13 @@ function formatBytes(b) {
 
 // File size for current choice, end timecode and signal stats.
 function updateExportInfo() {
-  const m = wavMinutes();
+  const sec = wavSeconds();
   const sr = Number(ui.sampleRate.value);
   const r = rate();
   const s = parseTc(ui.start.value, r);
-  const frames = m === null ? null : Math.floor(m * 60 * r.rate);
-  ui.duration.classList.toggle("bad", m === null);
-  ui.wavSize.textContent = m === null ? "–" : formatBytes(wavSize(m * 60, sr, Number(ui.bitDepth.value)));
+  const frames = sec === null ? null : Math.floor(sec * r.rate);
+  ui.duration.classList.toggle("bad", sec === null);
+  ui.wavSize.textContent = sec === null ? "–" : formatBytes(wavSize(sec, sr, Number(ui.bitDepth.value)));
   ui.infoEnd.textContent = frames === null || !s ? "–" : formatTc(fromFrames(toFrames(s, r) + frames, r), r);
   ui.infoFrames.textContent = frames === null ? "–" : frames.toLocaleString("en-US");
   ui.infoSpf.textContent = (sr / r.rate).toFixed(3);
@@ -261,6 +273,7 @@ ui.reset.onclick = reset;
 ui.export.onclick = exportWav;
 ui.level.oninput = updateLevel;
 ui.duration.oninput = updateExportInfo;
+ui.durationUnit.onchange = changeDurationUnit;
 ui.sampleRate.onchange = updateExportInfo;
 ui.bitDepth.onchange = updateExportInfo;
 ui.fps.onchange = () => { startFrame(); reset(); updateExportInfo(); };

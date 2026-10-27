@@ -119,6 +119,8 @@ label, .field {
 
 label.wide { grid-column: 1 / -1; }
 label span, .field span { color: var(--fg); }
+label .row { display: flex; gap: 8px; }
+label .row input { flex: 1; min-width: 0; }
 
 input, select {
   font: inherit;

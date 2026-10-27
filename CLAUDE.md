@@ -25,7 +25,7 @@ Reference sites for ideas:
 - Strict SMPTE 12M frame: user bits (UB1..UB8), colour frame flag (bit 11) and binary group flags (BGF0/1/2) always 0. User bits feature removed 2026-10-26 on user request.
 - Rise time: linear ramp, 25 µs 10–90 % default, placed at exact sub-sample edge time. `riseUs: 0` = hard square.
 - Frame counter wraps at 24h.
-- WAV export: 44.1/48/96 kHz, mono, 16/24-bit PCM or 32-bit float. Length unit select next to the field: Minutes (default, whole 1–60) or Seconds (whole, 1–3600); switching unit converts the value (rounds when going to minutes); file size (only below the bit-depth select, not in its options), end timecode, frames, samples/frame and bit rate shown live.
+- WAV export: 44.1/48/96 kHz, mono, 16/24-bit PCM or 32-bit float. Length unit select next to the field: Minutes (default, whole 1–240) or Seconds (whole, 1–14400; `MAX_MINUTES` in app.js); switching unit converts the value (rounds when going to minutes); file size (only below the bit-depth select, not in its options), end timecode, frames, samples/frame and bit rate shown live.
 - Output device select uses `AudioContext.setSinkId` (Chromium only; hidden elsewhere). Device names need mic permission ("Show device names" button).
 - Shortcuts: Space = play/stop, R = reset (ignored while typing in a field).
 - Local test: any static server on port 8123 (e.g. `npx http-server -p 8123 -c-1`), open `/test.html`. Browser-pane launch config is in parent folder `.claude/launch.json` (not in repo; points at a temp server script, recreate if gone).

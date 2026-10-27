@@ -1,5 +1,5 @@
 import {
-  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav, wavSize,
+  RATES, LtcGenerator, toFrames, fromFrames, framesPerDay, formatTc, parseTc, dbToGain, renderWav, wavSize, WAV_MAX_BYTES,
 } from "./ltc.js";
 
 const $ = (id) => document.getElementById(id);
@@ -8,7 +8,7 @@ const ui = {
   play: $("play"), stop: $("stop"), reset: $("reset"),
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"),
-  duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"),
+  duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), wavMax: $("wavMax"),
   infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), export: $("export"), error: $("error"),
 };
 
@@ -160,11 +160,12 @@ function exportWav() {
   const s = startFrame();
   if (s === null) return showError("Invalid start time. Use HH:MM:SS:FF, FF < fps (DF: no ;00/;01 at minutes not ÷10).");
   const seconds = wavSeconds();
-  if (seconds === null) return showError("WAV length must be 1–60 whole minutes or 1–3600 whole seconds.");
-  showError("");
-  const len = inMinutes() ? `${ui.duration.value}min` : `${seconds}s`;
+  if (seconds === null) return showError(`WAV length must be 1–${MAX_MINUTES} whole minutes or 1–${MAX_MINUTES * 60} whole seconds.`);
   const sampleRate = Number(ui.sampleRate.value);
   const bitDepth = Number(ui.bitDepth.value);
+  if (wavSize(seconds, sampleRate, bitDepth) > WAV_MAX_BYTES) return showError("File would exceed the 4 GB WAV limit. Choose a shorter length, lower sample rate or lower bit depth.");
+  showError("");
+  const len = inMinutes() ? `${ui.duration.value}min` : `${seconds}s`;
   const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, bitDepth, riseUs: riseUs() });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -175,19 +176,21 @@ function exportWav() {
 
 const inMinutes = () => ui.durationUnit.value === "min";
 
-// WAV length in seconds, or null if out of range. Minutes 0.1–60, seconds whole 1–3600.
+const MAX_MINUTES = 240;
+
+// WAV length in seconds, or null if out of range. Whole minutes 1–240 or whole seconds 1–14400.
 function wavSeconds() {
   const v = Number(ui.duration.value);
-  if (inMinutes()) return Number.isInteger(v) && v >= 1 && v <= 60 ? v * 60 : null;
-  return Number.isInteger(v) && v >= 1 && v <= 3600 ? v : null;
+  if (inMinutes()) return Number.isInteger(v) && v >= 1 && v <= MAX_MINUTES ? v * 60 : null;
+  return Number.isInteger(v) && v >= 1 && v <= MAX_MINUTES * 60 ? v : null;
 }
 
 // Keep the same length when switching unit.
 function changeDurationUnit() {
   const v = Number(ui.duration.value);
   Object.assign(ui.duration, inMinutes()
-    ? { min: 1, max: 60, step: 1, value: Math.max(1, Math.round(v / 60)) }
-    : { min: 1, max: 3600, step: 1, value: Math.max(1, Math.round(v * 60)) });
+    ? { min: 1, max: MAX_MINUTES, step: 1, value: Math.max(1, Math.round(v / 60)) }
+    : { min: 1, max: MAX_MINUTES * 60, step: 1, value: Math.max(1, Math.round(v * 60)) });
   updateExportInfo();
 }
 
@@ -196,13 +199,33 @@ function formatBytes(b) {
 }
 
 // File size for current choice, end timecode and signal stats.
-function updateExportInfo() {
+// Longest length (in seconds) that keeps the file under the 4 GB WAV limit.
+function maxWavSeconds(sr, bitDepth) {
+  return Math.min(MAX_MINUTES * 60, Math.floor((WAV_MAX_BYTES - 44) / (sr * (bitDepth / 8))));
+}
+
+// Set the length field's max from sample rate + bit depth; clamp the value down if it is over.
+function limitDuration(sr, bitDepth, clamp) {
+  const maxSec = maxWavSeconds(sr, bitDepth);
+  const max = inMinutes() ? Math.floor(maxSec / 60) : maxSec;
+  ui.duration.max = max;
+  const v = Number(ui.duration.value);
+  if (clamp && Number.isInteger(v) && v > max) ui.duration.value = max;
+  const sec = wavSeconds();
+  const limited = maxSec < MAX_MINUTES * 60;
+  ui.wavMax.hidden = !(limited && sec !== null && sec >= maxSec * 0.9);
+  ui.wavMax.textContent = `Max ${max} ${inMinutes() ? "min" : "s"} at ${sr / 1000} kHz / ${bitDepth}-bit${bitDepth === 32 ? " float" : ""}`;
+}
+
+function updateExportInfo(clamp = true) {
+  limitDuration(Number(ui.sampleRate.value), Number(ui.bitDepth.value), clamp);
   const sec = wavSeconds();
   const sr = Number(ui.sampleRate.value);
   const r = rate();
   const s = parseTc(ui.start.value, r);
   const frames = sec === null ? null : Math.floor(sec * r.rate);
   ui.duration.classList.toggle("bad", sec === null);
+  ui.wavSize.classList.toggle("bad", sec !== null && wavSize(sec, sr, Number(ui.bitDepth.value)) > WAV_MAX_BYTES);
   ui.wavSize.textContent = sec === null ? "–" : formatBytes(wavSize(sec, sr, Number(ui.bitDepth.value)));
   ui.infoEnd.textContent = frames === null || !s ? "–" : formatTc(fromFrames(toFrames(s, r) + frames, r), r);
   ui.infoFrames.textContent = frames === null ? "–" : frames.toLocaleString("en-US");
@@ -272,7 +295,8 @@ ui.stop.onclick = stop;
 ui.reset.onclick = reset;
 ui.export.onclick = exportWav;
 ui.level.oninput = updateLevel;
-ui.duration.oninput = updateExportInfo;
+ui.duration.oninput = () => updateExportInfo(false);
+ui.duration.onchange = () => updateExportInfo();
 ui.durationUnit.onchange = changeDurationUnit;
 ui.sampleRate.onchange = updateExportInfo;
 ui.bitDepth.onchange = updateExportInfo;

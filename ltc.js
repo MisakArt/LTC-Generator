@@ -144,14 +144,16 @@ export function wavSize(seconds, sampleRate, bitDepth = 16) {
   return 44 + Math.round(seconds * sampleRate) * (bitDepth / 8);
 }
 
+// WAV sizes are 32-bit, so the whole file must stay below 4 GiB.
+export const WAV_MAX_BYTES = 0xffffffff;
+
 // Render LTC to a mono WAV Blob. bitDepth 16/24 = PCM, 32 = float.
+// Rendered in 1 s chunks so long files never need one giant buffer.
 export function renderWav({ r, startFrame, seconds, db, sampleRate = 48000, bitDepth = 16, riseUs }) {
   const n = Math.round(seconds * sampleRate);
   const bytes = bitDepth / 8;
-  const samples = new Float32Array(n);
-  new LtcGenerator(r, sampleRate, startFrame, { riseUs }).fill(samples, dbToGain(db));
-  const buf = new ArrayBuffer(wavSize(seconds, sampleRate, bitDepth));
-  const v = new DataView(buf);
+  const head = new ArrayBuffer(44);
+  const v = new DataView(head);
   const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
   str(0, "RIFF");
   v.setUint32(4, 36 + n * bytes, true);
@@ -166,16 +168,28 @@ export function renderWav({ r, startFrame, seconds, db, sampleRate = 48000, bitD
   v.setUint16(34, bitDepth, true);
   str(36, "data");
   v.setUint32(40, n * bytes, true);
-  if (bitDepth === 32) {
-    for (let i = 0; i < n; i++) v.setFloat32(44 + i * 4, samples[i], true);
-  } else if (bitDepth === 24) {
-    for (let i = 0; i < n; i++) {
-      const s = Math.round(samples[i] * 8388607);
-      v.setUint16(44 + i * 3, s & 0xffff, true);
-      v.setInt8(46 + i * 3, s >> 16);
+
+  const gen = new LtcGenerator(r, sampleRate, startFrame, { riseUs });
+  const amp = dbToGain(db);
+  const parts = [head];
+  for (let done = 0; done < n; done += sampleRate) {
+    const len = Math.min(sampleRate, n - done);
+    const samples = new Float32Array(len);
+    gen.fill(samples, amp);
+    const buf = new ArrayBuffer(len * bytes);
+    const c = new DataView(buf);
+    if (bitDepth === 32) {
+      for (let i = 0; i < len; i++) c.setFloat32(i * 4, samples[i], true);
+    } else if (bitDepth === 24) {
+      for (let i = 0; i < len; i++) {
+        const s = Math.round(samples[i] * 8388607);
+        c.setUint16(i * 3, s & 0xffff, true);
+        c.setInt8(i * 3 + 2, s >> 16);
+      }
+    } else {
+      for (let i = 0; i < len; i++) c.setInt16(i * 2, Math.round(samples[i] * 32767), true);
     }
-  } else {
-    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(samples[i] * 32767), true);
+    parts.push(buf);
   }
-  return new Blob([buf], { type: "audio/wav" });
+  return new Blob(parts, { type: "audio/wav" });
 }

@@ -151,3 +151,21 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
 .info dd { margin: 2px 0 0; font-family: ui-monospace, Consolas, monospace; }
 
 .error { color: var(--accent); text-align: center; }
+#wavSize.bad { color: var(--accent); }
+.warn { color: #ffcc00; }
+
+.about {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--dim);
+  font-size: 0.875rem;
+}
+
+.about summary { cursor: pointer; color: var(--fg); }
+.about h2 { font-size: 0.875rem; color: var(--fg); margin: 16px 0 4px; }
+.about p, .about ul { margin: 0; }
+.about ul { padding-left: 20px; }
+.about code { font-family: ui-monospace, Consolas, monospace; color: var(--fg); }

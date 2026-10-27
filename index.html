@@ -50,12 +50,13 @@
     <section class="controls export">
       <label>WAV length
         <span class="row">
-          <input id="duration" type="number" min="1" max="60" step="1" value="1">
+          <input id="duration" type="number" min="1" max="240" step="1" value="1">
           <select id="durationUnit" aria-label="WAV length unit">
             <option value="min" selected>Minutes</option>
             <option value="s">Seconds</option>
           </select>
         </span>
+        <small id="wavMax" class="warn" hidden></small>
       </label>
       <label>Sample rate
         <select id="sampleRate">
@@ -83,6 +84,31 @@
     </section>
 
     <p id="error" class="error" hidden></p>
+
+    <details class="about">
+      <summary>About</summary>
+
+      <h2>What is timecode?</h2>
+      <p>Timecode labels every video or audio frame with a unique address in the form
+        <code>HH:MM:SS:FF</code> (hours, minutes, seconds, frames). Cameras, recorders, consoles and
+        playback systems that follow the same timecode can be synchronised and lined up exactly.
+        <strong>LTC</strong> (Linear Timecode, SMPTE 12M) carries that address as an audio signal
+        (biphase-mark, 80 bits per frame), so it can be sent over a normal audio cable or recorded on
+        an audio track.</p>
+
+      <h2>Features</h2>
+      <ul>
+        <li>Live LTC output in the browser: play, stop and reset, with keyboard shortcuts (Space, R).</li>
+        <li>Frame rates 23.976, 24, 25, 29.97 DF, 29.97 NDF and 30 fps. Drop frame is shown with <code>;</code>.</li>
+        <li>Any start time, strict SMPTE 12M frame layout (user bits and flags are zero).</li>
+        <li>25 µs rise-time edge shaping (SMPTE) or a hard square wave.</li>
+        <li>Output level control and a waveform view of one frame.</li>
+        <li>Output device selection (Chromium browsers only).</li>
+        <li>WAV export: mono, 44.1 / 48 / 96 kHz, 16-bit, 24-bit or 32-bit float.
+          Length 1–240 minutes (or 1–14400 seconds), limited by the 4 GB WAV size limit.
+          Live file size, end timecode, frame count, samples per frame and bit rate.</li>
+      </ul>
+    </details>
   </main>
   <script type="module" src="app.js"></script>
 </body>

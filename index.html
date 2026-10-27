@@ -40,14 +40,10 @@
       <label id="sinkWrap" hidden>Output device
         <select id="sink"><option value="">System default</option></select>
       </label>
-      <div>
-        <button id="sinkScan">Choose output device</button>
-        <small>Ingen inspelning sker.</small>
-        <small id="sinkNote" hidden>Requires Chrome or Edge.</small>
-      </div>
 
       <label class="wide">Output level <span id="levelLabel">-12 dBFS</span>
         <input id="level" type="range" min="-40" max="0" step="1" value="-12">
+        <small id="sinkNote" hidden>Output follows the system default device.</small>
       </label>
     </section>
 

@@ -7,7 +7,7 @@ const ui = {
   display: $("display"), scope: $("scope"), status: $("status"), fpsLabel: $("fpsLabel"),
   play: $("play"), stop: $("stop"), reset: $("reset"),
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
-  rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"), sinkNote: $("sinkNote"),
+  rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkNote: $("sinkNote"),
   duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), wavMax: $("wavMax"),
   infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), infoWavBitrate: $("infoWavBitrate"), export: $("export"), error: $("error"),
 };
@@ -241,32 +241,19 @@ function updateLevel() {
   queueScope();
 }
 
-// Output device select. Needs AudioContext.setSinkId (Chromium).
-// Names come from navigator.mediaDevices.selectAudioOutput(), so no microphone permission is needed.
-let picked = null; // device chosen with selectAudioOutput: { deviceId, label }
-
+// Output device select. Needs AudioContext.setSinkId (Chromium). No permission is ever requested:
+// the select is shown only if enumerateDevices() already lists at least two usable outputs,
+// otherwise audio follows the system default and a note is shown instead.
 async function listSinks() {
-  const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audiooutput");
+  const devices = (await navigator.mediaDevices.enumerateDevices())
+    .filter((d) => d.kind === "audiooutput" && d.deviceId !== "" && d.deviceId !== "default" && d.deviceId !== "communications");
   const keep = ui.sink.value;
   ui.sink.length = 1;
-  for (const d of devices) {
-    if (d.deviceId === "default" || d.deviceId === "") continue;
-    ui.sink.add(new Option(d.label || `Output ${ui.sink.length}`, d.deviceId));
-  }
-  if (picked && ![...ui.sink.options].some((o) => o.value === picked.deviceId)) ui.sink.add(new Option(picked.label, picked.deviceId));
+  for (const d of devices) ui.sink.add(new Option(d.label || `Output ${ui.sink.length}`, d.deviceId));
   ui.sink.value = [...ui.sink.options].some((o) => o.value === keep) ? keep : "";
-}
-
-async function chooseSink() {
-  try {
-    picked = await navigator.mediaDevices.selectAudioOutput();
-  } catch (e) {
-    if (e.name !== "NotAllowedError" && e.name !== "AbortError") showError("Could not choose output: " + e.message);
-    return; // dialog dismissed
-  }
-  await listSinks();
-  ui.sink.value = picked.deviceId;
-  await changeSink();
+  const show = devices.length >= 2;
+  ui.sinkWrap.hidden = !show;
+  ui.sinkNote.hidden = show;
 }
 
 async function changeSink() {
@@ -280,14 +267,11 @@ async function changeSink() {
 }
 
 if ("setSinkId" in AudioContext.prototype && navigator.mediaDevices?.enumerateDevices) {
-  ui.sinkWrap.hidden = false;
   listSinks();
   navigator.mediaDevices.addEventListener("devicechange", listSinks);
+} else {
+  ui.sinkNote.hidden = false;
 }
-// Button needs selectAudioOutput (Chromium, secure context). Without it the select still works, but the button is disabled.
-const canChoose = typeof navigator.mediaDevices?.selectAudioOutput === "function" && "setSinkId" in AudioContext.prototype;
-ui.sinkScan.disabled = !canChoose;
-ui.sinkNote.hidden = canChoose;
 
 function onKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
@@ -316,7 +300,6 @@ ui.start.onchange = reset;
 ui.start.oninput = () => { startFrame(); updateExportInfo(); };
 ui.rise.onchange = restartIfPlaying;
 ui.sink.onchange = changeSink;
-ui.sinkScan.onclick = chooseSink;
 document.addEventListener("keydown", onKey);
 window.addEventListener("resize", queueScope);
 

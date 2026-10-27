@@ -9,7 +9,7 @@ const ui = {
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkScan: $("sinkScan"),
   duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), wavMax: $("wavMax"),
-  infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), export: $("export"), error: $("error"),
+  infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), infoWavBitrate: $("infoWavBitrate"), export: $("export"), error: $("error"),
 };
 
 for (const r of Object.values(RATES)) ui.fps.add(new Option(r.label, r.id, false, r.id === "25"));
@@ -231,6 +231,8 @@ function updateExportInfo(clamp = true) {
   ui.infoFrames.textContent = frames === null ? "–" : frames.toLocaleString("en-US");
   ui.infoSpf.textContent = (sr / r.rate).toFixed(3);
   ui.infoBitrate.textContent = `${((80 * r.rate) / 1000).toFixed(3)} kbit/s`;
+  // Mono PCM: sample rate x bit depth.
+  ui.infoWavBitrate.textContent = `${((sr * Number(ui.bitDepth.value)) / 1000).toLocaleString("en-US", { minimumFractionDigits: 3 })} kbit/s`;
 }
 
 function updateLevel() {

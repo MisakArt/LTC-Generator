@@ -172,6 +172,18 @@
     log(parseTc("00:00:00:25", RATES["25"]) === null && parseTc("00:00:00:24", RATES["25"]) !== null, "parseTc rejects FF >= fps");
     log(formatTc(fromFrames(framesPerDay(RATES["30"]), RATES["30"])) === "00:00:00:00", "24h wrap");
 
+    // Output device picker: no microphone access anywhere.
+    {
+      const [js, html, worklet] = await Promise.all(["./app.js", "./index.html", "./ltc-worklet.js"].map((u) => fetch(u).then((r) => r.text())));
+      const code = (s) => s.replace(/\/\/.*$/gm, "");
+      log(!/getUserMedia/.test(code(js) + code(html) + code(worklet)), "no getUserMedia in app.js / index.html / ltc-worklet.js");
+      log(/selectAudioOutput\(\)/.test(js) && /setSinkId\(ui\.sink\.value\)/.test(js), "app.js uses selectAudioOutput + setSinkId");
+      log(/>Choose output device</.test(html) && !/mic permission/i.test(html), "button text 'Choose output device', no mic wording");
+      log(/Ingen inspelning sker\./.test(html) && /Requires Chrome or Edge/.test(html), "no-recording text and Chrome/Edge fallback text present");
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      log(doc.getElementById("sinkScan") && doc.getElementById("sinkNote") && doc.getElementById("sink"), "sinkScan / sinkNote / sink elements exist");
+    }
+
     out.innerHTML += `\n${fails ? `<span class="fail">${fails} FAILED</span>` : `<span class="pass">ALL PASS</span>`}\n`;
     document.title = fails ? "FAIL" : "PASS";
   </script>

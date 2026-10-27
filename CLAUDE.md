@@ -26,7 +26,7 @@ Reference sites for ideas:
 - Rise time: linear ramp, 25 µs 10–90 % default, placed at exact sub-sample edge time. `riseUs: 0` = hard square.
 - Frame counter wraps at 24h.
 - WAV export: 44.1/48/96 kHz, mono, 16/24-bit PCM or 32-bit float. Length unit select next to the field: Minutes (default, whole 1–240) or Seconds (whole, 1–14400; `MAX_MINUTES` in app.js); switching unit converts the value (rounds when going to minutes); file size (only below the bit-depth select, not in its options), end timecode, frames, samples/frame, LTC bit rate (80 x fps, only changes with frame rate) and WAV bit rate (sample rate x bit depth, mono) shown live.
-- Output device select uses `AudioContext.setSinkId` (Chromium only; hidden elsewhere). Device names need mic permission ("Show device names" button).
+- Output device select uses `AudioContext.setSinkId` (Chromium only; hidden elsewhere). "Choose output device" button uses `navigator.mediaDevices.selectAudioOutput()` (no mic permission, no `getUserMedia`); disabled with a "Requires Chrome or Edge" note if unsupported.
 - Shortcuts: Space = play/stop, R = reset (ignored while typing in a field).
 - Local test: any static server on port 8123 (e.g. `npx http-server -p 8123 -c-1`), open `/test.html`. Browser-pane launch config is in parent folder `.claude/launch.json` (not in repo; points at a temp server script, recreate if gone).
 

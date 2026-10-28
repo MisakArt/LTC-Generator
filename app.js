@@ -195,7 +195,9 @@ function changeDurationUnit() {
 }
 
 function formatBytes(b) {
-  return b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`;
+  const dec = b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`;
+  const bin = b >= 2 ** 30 ? `${(b / 2 ** 30).toFixed(2)} GiB` : `${(b / 2 ** 20).toFixed(1)} MiB`;
+  return `${dec} (${bin})`;
 }
 
 // File size for current choice, end timecode and signal stats.
@@ -214,7 +216,7 @@ function limitDuration(sr, bitDepth, clamp) {
   const sec = wavSeconds();
   const limited = maxSec < MAX_MINUTES * 60;
   ui.wavMax.hidden = !(limited && sec !== null && sec >= maxSec * 0.9);
-  ui.wavMax.textContent = `Max ${max} ${inMinutes() ? "min" : "s"} at ${sr / 1000} kHz / ${bitDepth}-bit${bitDepth === 32 ? " float" : ""}`;
+  ui.wavMax.textContent = `Max ${max} ${inMinutes() ? "min" : "s"} at ${sr / 1000} kHz / ${bitDepth}-bit${bitDepth === 32 ? " float" : ""} (${formatBytes(wavSize(maxSec, sr, bitDepth))})`;
 }
 
 function updateExportInfo(clamp = true) {

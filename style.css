@@ -168,4 +168,5 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
 .about h2 { font-size: 0.875rem; color: var(--fg); margin: 16px 0 4px; }
 .about p, .about ul { margin: 0; }
 .about ul { padding-left: 20px; }
+.about .units { margin-top: 12px; }
 .about code { font-family: ui-monospace, Consolas, monospace; color: var(--fg); }

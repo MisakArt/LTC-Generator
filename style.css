@@ -169,6 +169,14 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
 .about p, .about ul { margin: 0; }
 .about ul { padding-left: 20px; }
 .about .units { margin-top: 12px; }
+.about .sub { margin-top: 12px; }
+.about .sub > :not(summary) { margin-top: 6px; }
+.about table { border-collapse: collapse; }
+.about th, .about td { text-align: left; padding: 2px 16px 2px 0; }
+.about th { color: var(--fg); font-weight: 600; }
+.presets { display: flex; gap: 6px; margin-top: 6px; }
+.preset { font: inherit; font-size: 0.75rem; padding: 2px 8px; cursor: pointer; color: var(--dim); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
+.preset:hover:not(:disabled) { color: var(--fg); }
 .about code { font-family: ui-monospace, Consolas, monospace; color: var(--fg); }
 
 /* Level marks */

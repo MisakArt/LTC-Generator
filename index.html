@@ -28,6 +28,10 @@
 
       <label>Start time
         <input id="start" type="text" value="00:00:00:00" spellcheck="false" autocomplete="off">
+        <span class="presets">
+          <button type="button" class="preset" data-tc="00:00:00:00">00:00:00:00</button>
+          <button type="button" class="preset" data-tc="01:00:00:00">01:00:00:00</button>
+        </span>
       </label>
 
       <label>Edge shape
@@ -111,6 +115,38 @@
           Length 1–240 minutes (or 1–14400 seconds), limited by the 4 GB WAV size limit.
           Live file size, end timecode, frame count, samples per frame and bit rate.</li>
       </ul>
+
+      <details class="sub">
+        <summary>Which frame rate?</summary>
+        <table>
+          <tr><th>Rate</th><th>Typical use</th></tr>
+          <tr><td>23.976</td><td>Film for NTSC video, mostly post</td></tr>
+          <tr><td>24</td><td>True film</td></tr>
+          <tr><td>25</td><td>PAL / EBU, most of Europe</td></tr>
+          <tr><td>29.97 NDF</td><td>NTSC video</td></tr>
+          <tr><td>29.97 DF</td><td>NTSC broadcast, honest clock</td></tr>
+          <tr><td>30</td><td>Audio-only rigs, legacy North America</td></tr>
+        </table>
+        <p>Every device in the chain must use the same rate. 30 fps against a 29.97 source drifts about one frame every 33 seconds.</p>
+      </details>
+
+      <details class="sub">
+        <summary>Drop frame in short</summary>
+        <p>Only the numbering is corrected; no frames are removed. Labels 00 and 01 are skipped at the start of each minute,
+          except every tenth minute. Drop frame is written with a semicolon, e.g. <code>01:00:00;02</code>.
+          One hour = 107,892 frames.</p>
+      </details>
+
+      <details class="sub">
+        <summary>Using it on a show</summary>
+        <ul>
+          <li>Use a dedicated output for LTC.</li>
+          <li>No EQ, compression, limiting or gate on the LTC path.</li>
+          <li>Never send it over Bluetooth or through lossy codecs.</li>
+          <li>Start around -6 dBFS and adjust to the receiver.</li>
+          <li>Give the receiver a few seconds of timecode before the first cue.</li>
+        </ul>
+      </details>
 
       <p class="units"><strong>Gigabyte (GB):</strong> uses decimal math (base-10), where 1 GB = 1,000,000,000 bytes (10⁹).
         Hardware and storage manufacturers usually measure disk size this way.<br>

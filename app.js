@@ -237,7 +237,34 @@ function updateExportInfo(clamp = true) {
   ui.infoWavBitrate.textContent = `${((sr * Number(ui.bitDepth.value)) / 1000).toLocaleString("en-US", { minimumFractionDigits: 3 })} kbit/s`;
 }
 
+// Level marks under the slider. Tick position comes from the slider's real min/max.
+const LEVEL_MARKS = [
+  [0, "bad", "Not recommended. May clip."],
+  [-3, "bad", "May clip."],
+  [-6, "warn", "High."],
+  [-12, "", "Default. Fits most gear."],
+  [-20, "", "Quiet. For hot or sensitive inputs."],
+];
+const levelMarks = $("levelMarks");
+{
+  const min = Number(ui.level.min), max = Number(ui.level.max);
+  const ticks = LEVEL_MARKS.map(([v, c]) => {
+    const f = (v - min) / (max - min);
+    return `<button type="button" class="tick ${c}" data-db="${v}" style="--f:${f}"><i></i>${v}</button>`;
+  }).join("");
+  const list = LEVEL_MARKS.map(([v, c, t]) =>
+    `<button type="button" class="mark ${c}" data-db="${v}"><b>${v} dBFS</b> ${t}</button>`).join("");
+  levelMarks.innerHTML = `<div class="ticks">${ticks}</div>${list}`;
+  levelMarks.onclick = (e) => {
+    const b = e.target.closest("[data-db]");
+    if (!b) return;
+    ui.level.value = b.dataset.db;
+    updateLevel();
+  };
+}
+
 function updateLevel() {
+  levelMarks.querySelectorAll("[data-db]").forEach((b) => b.classList.toggle("on", Number(b.dataset.db) === db()));
   ui.levelLabel.textContent = `${db()} dBFS`;
   if (gain) gain.gain.setTargetAtTime(dbToGain(db()), ctx.currentTime, 0.01);
   queueScope();

@@ -197,4 +197,3 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
 
 .credit { color: var(--dim); font-size: 0.8rem; }
 .about .credit { margin-top: 16px; }
-footer.credit { text-align: center; margin: 32px 0 16px; }

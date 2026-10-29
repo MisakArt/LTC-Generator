@@ -13,11 +13,6 @@ const ui = {
 };
 
 for (const r of Object.values(RATES)) ui.fps.add(new Option(r.label, r.id, false, r.id === "25"));
-// Long text only while the list is open; the closed select shows the short label.
-const fpsText = long => { for (const o of ui.fps.options) o.text = long ? RATES[o.value].long : RATES[o.value].label; };
-ui.fps.addEventListener("mousedown", () => fpsText(true));
-ui.fps.addEventListener("change", () => fpsText(false));
-ui.fps.addEventListener("blur", () => fpsText(false));
 
 let ctx = null;
 let gain = null;
@@ -90,7 +85,7 @@ function render() {
   ui.display.textContent = formatTc(fromFrames(frame, rate()), rate());
   ui.display.classList.toggle("stopped", !playing);
   ui.status.textContent = playing ? "Playing" : "Stopped";
-  ui.fpsLabel.textContent = rate().exact ? `${rate().label} · ${rate().exact}` : `${rate().label} fps`;
+  ui.fpsLabel.textContent = rate().label;
   ui.play.disabled = playing;
   ui.stop.disabled = !playing;
   ui.fps.disabled = playing;

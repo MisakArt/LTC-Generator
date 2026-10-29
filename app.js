@@ -90,7 +90,6 @@ function render() {
   ui.stop.disabled = !playing;
   ui.fps.disabled = playing;
   ui.start.disabled = playing;
-  document.querySelectorAll(".preset").forEach((b) => (b.disabled = playing));
   queueScope();
 }
 
@@ -329,11 +328,6 @@ ui.sampleRate.onchange = updateExportInfo;
 ui.bitDepth.onchange = updateExportInfo;
 ui.fps.onchange = () => { startFrame(); reset(); updateExportInfo(); };
 ui.start.onchange = reset;
-document.querySelectorAll(".preset").forEach((b) => b.onclick = () => {
-  ui.start.value = b.dataset.tc;
-  ui.start.oninput();
-  reset();
-});
 ui.start.oninput = () => { startFrame(); updateExportInfo(); };
 ui.rise.onchange = restartIfPlaying;
 ui.sink.onchange = changeSink;

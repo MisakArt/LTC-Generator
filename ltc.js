@@ -4,12 +4,12 @@ export const SYNC_WORD = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1];
 
 // fps = timecode base (frames per label second), rate = real frames per second.
 export const RATES = {
-  "23.976": { id: "23.976", label: "23.976", fps: 24, rate: 24000 / 1001, df: false },
-  "24": { id: "24", label: "24", fps: 24, rate: 24, df: false },
-  "25": { id: "25", label: "25", fps: 25, rate: 25, df: false },
-  "29.97df": { id: "29.97df", label: "29.97 DF", fps: 30, rate: 30000 / 1001, df: true },
-  "29.97": { id: "29.97", label: "29.97 NDF", fps: 30, rate: 30000 / 1001, df: false },
-  "30": { id: "30", label: "30", fps: 30, rate: 30, df: false },
+  "23.976": { id: "23.976", label: "23.976", long: "23.976 fps (24000/1001 = 23.97602)", exact: "23.97602 fps", fps: 24, rate: 24000 / 1001, df: false },
+  "24": { id: "24", label: "24", long: "24 fps", fps: 24, rate: 24, df: false },
+  "25": { id: "25", label: "25", long: "25 fps", fps: 25, rate: 25, df: false },
+  "29.97df": { id: "29.97df", label: "29.97 DF", long: "29.97 DF (30000/1001 = 29.97003 fps, drop frame)", exact: "29.97003 fps", fps: 30, rate: 30000 / 1001, df: true },
+  "29.97": { id: "29.97", label: "29.97 NDF", long: "29.97 NDF (30000/1001 = 29.97003 fps, non-drop)", exact: "29.97003 fps", fps: 30, rate: 30000 / 1001, df: false },
+  "30": { id: "30", label: "30", long: "30 fps", fps: 30, rate: 30, df: false },
 };
 
 // Drop frame: skip labels 00 and 01 every minute except minutes divisible by 10.

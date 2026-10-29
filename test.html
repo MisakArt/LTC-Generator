@@ -14,7 +14,7 @@
   <pre id="out"></pre>
   <script type="module">
     import {
-      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, wavSize, framesPerDay, SMPTE_RISE_US,
+      LtcGenerator, SYNC_WORD, RATES, toFrames, fromFrames, formatTc, parseTc, renderWav, wavSize, infoChunk, framesPerDay, SMPTE_RISE_US,
     } from "./ltc.js";
 
     const out = document.getElementById("out");
@@ -148,10 +148,11 @@
     }
 
     // WAV header + length
+    const infoLen = infoChunk(RATES["25"], "00:00:00:00").length;
     for (const sr of [44100, 48000, 96000]) {
       const blob = renderWav({ r: RATES["25"], startFrame: 0, seconds: 1, db: -6, sampleRate: sr });
       const head = new DataView(await blob.arrayBuffer());
-      log(blob.size === 44 + sr * 2 && head.getUint32(24, true) === sr && head.getUint16(22, true) === 1,
+      log(blob.size === 44 + sr * 2 + infoLen && head.getUint32(24, true) === sr && head.getUint16(22, true) === 1,
         `WAV 1 s @ ${sr} Hz mono 16-bit, size ${blob.size}`);
     }
     for (const bd of [24, 32]) {
@@ -160,7 +161,7 @@
       const peak = Math.max(...Array.from({ length: 1000 }, (_, i) => Math.abs(bd === 32
         ? h.getFloat32(44 + i * 4, true)
         : (h.getUint16(44 + i * 3, true) | (h.getInt8(46 + i * 3) << 16)) / 8388607)));
-      log(b.size === wavSize(1, 48000, bd) && b.size === 44 + 48000 * bd / 8 && h.getUint16(34, true) === bd
+      log(b.size === wavSize(1, 48000, bd, RATES["25"]) && b.size === 44 + 48000 * bd / 8 + infoLen && h.getUint16(34, true) === bd
         && h.getUint16(20, true) === (bd === 32 ? 3 : 1) && Math.abs(peak - 0.501) < 0.01,
         `WAV ${bd}-bit size ${b.size}, peak ${peak.toFixed(3)}`);
     }
@@ -168,6 +169,31 @@
     const head = new DataView(await blob.arrayBuffer());
     const peak = Math.max(...Array.from({ length: 1000 }, (_, i) => Math.abs(head.getInt16(44 + i * 2, true))));
     log(Math.abs(peak / 32767 - 0.501) < 0.01, `WAV -6 dBFS peak ${(peak / 32767).toFixed(3)}`);
+
+    // LIST/INFO block + RIFF size, incl. odd data length (24-bit, 1 sample = 3 bytes)
+    for (const [bd, sec] of [[16, 1], [24, 1], [24, 1 / 48000]]) {
+      for (const r of [RATES["25"], RATES["29.97df"]]) {
+        const sf = toFrames({ h: 1, m: 0, s: 0, f: 0 }, r);
+        const buf = new Uint8Array(await renderWav({ r, startFrame: sf, seconds: sec, db: -6, bitDepth: bd }).arrayBuffer());
+        const w = new DataView(buf.buffer);
+        const t = (o, n) => String.fromCharCode(...buf.slice(o, o + n));
+        const dlen = w.getUint32(40, true);
+        const lo = 44 + dlen + (dlen % 2);
+        const tags = {};
+        for (let o = lo + 12; o < buf.length; ) {
+          const n = w.getUint32(o + 4, true);
+          tags[t(o, 4)] = t(o + 8, n - 1);
+          o += 8 + n + (n % 2);
+        }
+        const tc = formatTc(fromFrames(sf, r), r);
+        log(w.getUint32(4, true) === buf.length - 8 && buf.length % 2 === 0 && dlen === Math.round(sec * 48000) * bd / 8
+          && t(lo, 4) === "LIST" && w.getUint32(lo + 4, true) === buf.length - lo - 8 && t(lo + 8, 4) === "INFO"
+          && buf.length === wavSize(sec, 48000, bd, r) && Object.values(tags).every((s) => /^[ -~]+$/.test(s))
+          && tags.INAM === `LTC ${r.label} ${tc}` && tags.IART === "Misak Nalbandian"
+          && tags.ISFT === "LTC Generator by Misak Nalbandian" && tags.ICMT === "SMPTE 12M LTC",
+          `WAV LIST/INFO ${bd}-bit data ${dlen} B, ${r.label}: RIFF size ${w.getUint32(4, true)}, INAM "${tags.INAM}"`);
+      }
+    }
 
     log(parseTc("00:00:00:25", RATES["25"]) === null && parseTc("00:00:00:24", RATES["25"]) !== null, "parseTc rejects FF >= fps");
     log(formatTc(fromFrames(framesPerDay(RATES["30"]), RATES["30"])) === "00:00:00:00", "24h wrap");

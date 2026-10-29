@@ -163,7 +163,7 @@ function exportWav() {
   if (seconds === null) return showError(`WAV length must be 1–${MAX_MINUTES} whole minutes or 1–${MAX_MINUTES * 60} whole seconds.`);
   const sampleRate = Number(ui.sampleRate.value);
   const bitDepth = Number(ui.bitDepth.value);
-  if (wavSize(seconds, sampleRate, bitDepth) > WAV_MAX_BYTES) return showError("File would exceed the 4 GB WAV limit. Choose a shorter length, lower sample rate or lower bit depth.");
+  if (wavSize(seconds, sampleRate, bitDepth, rate()) > WAV_MAX_BYTES) return showError("File would exceed the 4 GB WAV limit. Choose a shorter length, lower sample rate or lower bit depth.");
   showError("");
   const len = inMinutes() ? `${ui.duration.value}min` : `${seconds}s`;
   const blob = renderWav({ r: rate(), startFrame: s, seconds, db: db(), sampleRate, bitDepth, riseUs: riseUs() });
@@ -203,7 +203,7 @@ function formatBytes(b) {
 // File size for current choice, end timecode and signal stats.
 // Longest length (in seconds) that keeps the file under the 4 GB WAV limit.
 function maxWavSeconds(sr, bitDepth) {
-  return Math.min(MAX_MINUTES * 60, Math.floor((WAV_MAX_BYTES - 44) / (sr * (bitDepth / 8))));
+  return Math.min(MAX_MINUTES * 60, Math.floor((WAV_MAX_BYTES - wavSize(0, sr, bitDepth, rate())) / (sr * (bitDepth / 8))));
 }
 
 // Set the length field's max from sample rate + bit depth; clamp the value down if it is over.
@@ -216,7 +216,7 @@ function limitDuration(sr, bitDepth, clamp) {
   const sec = wavSeconds();
   const limited = maxSec < MAX_MINUTES * 60;
   ui.wavMax.hidden = !(limited && sec !== null && sec >= maxSec * 0.9);
-  ui.wavMax.textContent = `Max ${max} ${inMinutes() ? "min" : "s"} at ${sr / 1000} kHz / ${bitDepth}-bit${bitDepth === 32 ? " float" : ""} (${formatBytes(wavSize(maxSec, sr, bitDepth))})`;
+  ui.wavMax.textContent = `Max ${max} ${inMinutes() ? "min" : "s"} at ${sr / 1000} kHz / ${bitDepth}-bit${bitDepth === 32 ? " float" : ""} (${formatBytes(wavSize(maxSec, sr, bitDepth, rate()))})`;
 }
 
 function updateExportInfo(clamp = true) {
@@ -227,8 +227,8 @@ function updateExportInfo(clamp = true) {
   const s = parseTc(ui.start.value, r);
   const frames = sec === null ? null : Math.floor(sec * r.rate);
   ui.duration.classList.toggle("bad", sec === null);
-  ui.wavSize.classList.toggle("bad", sec !== null && wavSize(sec, sr, Number(ui.bitDepth.value)) > WAV_MAX_BYTES);
-  ui.wavSize.textContent = sec === null ? "–" : formatBytes(wavSize(sec, sr, Number(ui.bitDepth.value)));
+  ui.wavSize.classList.toggle("bad", sec !== null && wavSize(sec, sr, Number(ui.bitDepth.value), rate()) > WAV_MAX_BYTES);
+  ui.wavSize.textContent = sec === null ? "–" : formatBytes(wavSize(sec, sr, Number(ui.bitDepth.value), rate()));
   ui.infoEnd.textContent = frames === null || !s ? "–" : formatTc(fromFrames(toFrames(s, r) + frames, r), r);
   ui.infoFrames.textContent = frames === null ? "–" : frames.toLocaleString("en-US");
   ui.infoSpf.textContent = (sr / r.rate).toFixed(3);

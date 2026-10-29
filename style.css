@@ -194,3 +194,7 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
 #levelTicks .tick.on, .levelmarks .mark.on { font-weight: 700; color: var(--c, var(--fg)); }
 .levelmarks .mark { padding: 2px 0; line-height: 1.3; }
 .levelmarks .mark b { font-weight: 600; margin-right: 4px; }
+
+.credit { color: var(--dim); font-size: 0.8rem; }
+.about .credit { margin-top: 16px; }
+footer.credit { text-align: center; margin: 32px 0 16px; }

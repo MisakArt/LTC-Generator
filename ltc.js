@@ -139,9 +139,34 @@ export function dbToGain(db) {
   return Math.pow(10, db / 20);
 }
 
-// Mono WAV file size in bytes (44-byte header + data).
-export function wavSize(seconds, sampleRate, bitDepth = 16) {
-  return 44 + Math.round(seconds * sampleRate) * (bitDepth / 8);
+export const WAV_ARTIST = "Misak Nalbandian";
+export const WAV_SOFTWARE = "LTC Generator by Misak Nalbandian";
+
+// LIST/INFO chunk written after the data chunk. Plain ASCII, NUL-terminated strings, each padded to even length.
+export function infoChunk(r, tc) {
+  const tags = [["INAM", `LTC ${r.label} ${tc}`], ["IART", WAV_ARTIST], ["ISFT", WAV_SOFTWARE], ["ICMT", "SMPTE 12M LTC"]];
+  const size = (t) => t.length + 1;
+  const body = 4 + tags.reduce((n, [, t]) => n + 8 + size(t) + (size(t) % 2), 0);
+  const out = new Uint8Array(8 + body);
+  const v = new DataView(out.buffer);
+  const str = (o, s) => [...s].forEach((c, i) => { out[o + i] = c.charCodeAt(0); });
+  str(0, "LIST");
+  v.setUint32(4, body, true);
+  str(8, "INFO");
+  let o = 12;
+  for (const [id, t] of tags) {
+    str(o, id);
+    v.setUint32(o + 4, size(t), true);
+    str(o + 8, t);
+    o += 8 + size(t) + (size(t) % 2);
+  }
+  return out;
+}
+
+// Mono WAV file size in bytes: 44-byte header, data, pad byte if data is odd, LIST/INFO chunk.
+export function wavSize(seconds, sampleRate, bitDepth = 16, r = RATES["29.97"]) {
+  const data = Math.round(seconds * sampleRate) * (bitDepth / 8);
+  return 44 + data + (data % 2) + infoChunk(r, "00:00:00:00").length;
 }
 
 // WAV sizes are 32-bit, so the whole file must stay below 4 GiB.
@@ -152,11 +177,13 @@ export const WAV_MAX_BYTES = 0xffffffff;
 export function renderWav({ r, startFrame, seconds, db, sampleRate = 48000, bitDepth = 16, riseUs }) {
   const n = Math.round(seconds * sampleRate);
   const bytes = bitDepth / 8;
+  const info = infoChunk(r, formatTc(fromFrames(startFrame, r), r));
+  const pad = (n * bytes) % 2;
   const head = new ArrayBuffer(44);
   const v = new DataView(head);
   const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
   str(0, "RIFF");
-  v.setUint32(4, 36 + n * bytes, true);
+  v.setUint32(4, 36 + n * bytes + pad + info.length, true);
   str(8, "WAVE");
   str(12, "fmt ");
   v.setUint32(16, 16, true);
@@ -191,5 +218,7 @@ export function renderWav({ r, startFrame, seconds, db, sampleRate = 48000, bitD
     }
     parts.push(buf);
   }
+  if (pad) parts.push(new Uint8Array(1));
+  parts.push(info);
   return new Blob(parts, { type: "audio/wav" });
 }

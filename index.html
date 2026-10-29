@@ -43,9 +43,10 @@
 
       <label class="wide">Output level <span id="levelLabel">-12 dBFS</span>
         <input id="level" type="range" min="-40" max="0" step="1" value="-12">
-        <small id="sinkNote" hidden>Output follows the system default device.</small>
+        <div class="ticks" id="levelTicks"></div>
       </label>
       <div class="wide levelmarks" id="levelMarks"></div>
+      <small id="sinkNote" class="wide levelnote" hidden>Output follows the system default device.</small>
     </section>
 
     <section class="controls export">

@@ -254,17 +254,19 @@ const levelMarks = $("levelMarks");
   }).join("");
   const list = LEVEL_MARKS.map(([v, c, t]) =>
     `<button type="button" class="mark ${c}" data-db="${v}"><b>${v} dBFS</b> ${t}</button>`).join("");
-  levelMarks.innerHTML = `<div class="ticks">${ticks}</div>${list}`;
-  levelMarks.onclick = (e) => {
+  $("levelTicks").innerHTML = ticks;
+  levelMarks.innerHTML = list;
+  const onMark = (e) => {
     const b = e.target.closest("[data-db]");
     if (!b) return;
     ui.level.value = b.dataset.db;
     updateLevel();
   };
+  levelMarks.onclick = $("levelTicks").onclick = onMark;
 }
 
 function updateLevel() {
-  levelMarks.querySelectorAll("[data-db]").forEach((b) => b.classList.toggle("on", Number(b.dataset.db) === db()));
+  document.querySelectorAll("#levelTicks [data-db], #levelMarks [data-db]").forEach((b) => b.classList.toggle("on", Number(b.dataset.db) === db()));
   ui.levelLabel.textContent = `${db()} dBFS`;
   if (gain) gain.gain.setTargetAtTime(dbToGain(db()), ctx.currentTime, 0.01);
   queueScope();

@@ -32,6 +32,8 @@ Reference sites for ideas:
 
 ## Status / Next steps
 
+**Defaults (2026-10-30):** WAV export defaults to 48 kHz / 24-bit (no localStorage in app, nothing saved). Live AudioContext requests 48 kHz (`LIVE_RATE`); if the device gives another rate, `#rateNote` under the transport shows it.
+
 **Status (2026-10-26):** Version 2 done. Added 23.976 / 29.97 DF / 29.97 NDF, user bits (hex / 309M date),
 25 µs rise-time shaping, export sample-rate choice, output device select, keyboard shortcuts.
 Self-test (`test.html`) 72 checks pass in browser. Output device switching not tested on real hardware.

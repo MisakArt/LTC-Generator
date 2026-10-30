@@ -147,6 +147,13 @@
       log(hard.every((x) => Math.abs(x) === 0.5), "hard square only ±amp");
     }
 
+    // Defaults in the UI: 48 kHz, 24-bit
+    {
+      const doc = new DOMParser().parseFromString(await (await fetch("index.html")).text(), "text/html");
+      const sel = (id) => doc.querySelector(`#${id} option[selected]`)?.value;
+      log(sel("sampleRate") === "48000" && sel("bitDepth") === "24", `default WAV settings ${sel("sampleRate")} Hz / ${sel("bitDepth")}-bit`);
+    }
+
     // WAV header + length
     const infoLen = infoChunk(RATES["25"], "00:00:00:00").length;
     for (const sr of [44100, 48000, 96000]) {

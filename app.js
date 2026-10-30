@@ -8,12 +8,13 @@ const ui = {
   play: $("play"), stop: $("stop"), reset: $("reset"),
   fps: $("fps"), start: $("start"), level: $("level"), levelLabel: $("levelLabel"),
   rise: $("rise"), sink: $("sink"), sinkWrap: $("sinkWrap"), sinkNote: $("sinkNote"),
-  duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), wavMax: $("wavMax"),
+  duration: $("duration"), durationUnit: $("durationUnit"), sampleRate: $("sampleRate"), rateNote: $("rateNote"), bitDepth: $("bitDepth"), wavSize: $("wavSize"), wavMax: $("wavMax"),
   infoEnd: $("infoEnd"), infoFrames: $("infoFrames"), infoSpf: $("infoSpf"), infoBitrate: $("infoBitrate"), infoWavBitrate: $("infoWavBitrate"), export: $("export"), error: $("error"),
 };
 
 for (const r of Object.values(RATES)) ui.fps.add(new Option(r.label, r.id, false, r.id === "25"));
 
+const LIVE_RATE = 48000;
 let ctx = null;
 let gain = null;
 let node = null;
@@ -100,7 +101,9 @@ async function play() {
   ui.play.disabled = true;
   try {
     if (!ctx) {
-      ctx = new AudioContext();
+      ctx = new AudioContext({ sampleRate: LIVE_RATE });
+      ui.rateNote.hidden = ctx.sampleRate === LIVE_RATE;
+      ui.rateNote.textContent = `Output running at ${ctx.sampleRate / 1000} kHz (device limit)`;
       await ctx.audioWorklet.addModule("ltc-worklet.js");
       gain = new GainNode(ctx, { gain: dbToGain(db()) });
       gain.connect(ctx.destination);
